@@ -210,9 +210,9 @@ function AppContent({
         </div>
         <nav className="flex-1 p-4 space-y-2">
           <Link 
-            to="/tasks" 
+            to="/" 
             className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-              currentPath === '/tasks' || currentPath === '/'
+              currentPath === '/'
                 ? 'bg-white/10 text-white font-semibold' 
                 : 'text-indigo-300 hover:bg-white/5 hover:text-white'
             }`}
@@ -307,17 +307,19 @@ function AppContent({
               </>
             ) : (!user || user.role === 'general') ? (
               <>
-                <Route path="/tasks" element={<TaskList user={user} />} />
-                <Route path="*" element={<Navigate to="/tasks" />} />
+                <Route path="/" element={<TaskList user={user} />} />
+                <Route path="/tasks" element={<Navigate to="/" />} />
+                <Route path="*" element={<Navigate to="/" />} />
               </>
             ) : (
               <>
-                <Route path="/" element={<Navigate to="/tasks" />} />
+                <Route path="/" element={<TaskList user={user} />} />
+                <Route path="/tasks" element={<Navigate to="/" />} />
                 <Route path="/dashboard" element={<Dashboard user={user} />} />
-                <Route path="/tasks" element={<TaskList user={user} />} />
                 <Route path="/report" element={<Report user={user} />} />
                 <Route path="/settings" element={<SettingsPage user={user} />} />
                 <Route path="/setup" element={<RoleSelector onSelect={handleRoleSelect} />} />
+                <Route path="*" element={<Navigate to="/" />} />
               </>
             )}
           </Routes>
@@ -328,9 +330,9 @@ function AppContent({
       {user && user.role !== 'general' && user.role !== 'unassigned' && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-2 z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
           <Link 
-            to="/tasks" 
+            to="/" 
             className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
-              currentPath === '/tasks' || currentPath === '/'
+              currentPath === '/'
                 ? 'text-indigo-600 font-bold scale-105' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
