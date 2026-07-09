@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "ภารกิจผู้บริหาร สพป.แม่ฮ่องสอน เขต 1",
+  "description": "ระบบติดตามและบริหารจัดการภารกิจผู้บริหาร สำนักงานเขตพื้นที่การศึกษาประถมศึกษาแม่ฮ่องสอน เขต 1",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

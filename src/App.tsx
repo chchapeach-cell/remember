@@ -4,7 +4,7 @@ import { signInWithPopup, onAuthStateChanged, signOut, User as FirebaseUser } fr
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { User, Role } from './types';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { LogOut, Home, Calendar, PieChart, Bell, LayoutDashboard, Settings } from 'lucide-react';
+import { LogOut, Home, Calendar, PieChart, Bell, LayoutDashboard, Settings, AlertCircle } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
@@ -15,46 +15,80 @@ import SettingsPage from './components/SettingsPage';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        const userEmail = firebaseUser.email?.toLowerCase().trim() || '';
+        const isSpecialAdmin = userEmail === 'tamrri@gmail.com' || userEmail === 'ch.chapeach@gmail.com';
+        
         try {
           // Fetch custom user profile from Firestore
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          const isSpecialAdmin = firebaseUser.email === 'tamrri@gmail.com';
+          
+          // Check allowed emails list
+          let allowedDocSnap = null;
+          if (userEmail) {
+            allowedDocSnap = await getDoc(doc(db, 'allowed_emails', userEmail));
+          }
+          
+          const isAllowedByEmail = allowedDocSnap?.exists();
+          const hasExistingProfile = userDoc.exists();
+          
+          if (!isSpecialAdmin && !hasExistingProfile && !isAllowedByEmail) {
+            // User is not authorized in whitelist database!
+            await signOut(auth);
+            setLoginError("ขออภัย บัญชีอีเมลนี้ไม่ได้รับสิทธิ์ให้เข้าใช้งานระบบ กรุณาติดต่อผู้ดูแลระบบเพื่อเพิ่มรายชื่อผู้ใช้งาน");
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+          
           let userData: User;
 
-          if (userDoc.exists()) {
+          if (hasExistingProfile) {
             userData = userDoc.data() as User;
+            userData.email = userData.email.toLowerCase();
+            
             if (isSpecialAdmin && userData.role !== 'executive') {
               userData.role = 'executive';
               await setDoc(doc(db, 'users', firebaseUser.uid), userData);
             }
           } else {
-            // New user, wait for them to select a role
+            // New allowed user or special admin
+            let assignedRole: Role = 'unassigned';
+            if (isSpecialAdmin) {
+              assignedRole = 'executive';
+            } else if (allowedDocSnap && allowedDocSnap.exists()) {
+              assignedRole = allowedDocSnap.data().role as Role;
+            }
+            
             userData = {
               uid: firebaseUser.uid,
-              email: firebaseUser.email || '',
+              email: userEmail,
               displayName: firebaseUser.displayName || '',
               photoURL: firebaseUser.photoURL || '',
-              role: isSpecialAdmin ? 'executive' : 'unassigned', // Temporary, will be updated via RoleSelector unless admin
+              role: assignedRole,
             };
-            if (isSpecialAdmin) {
-               await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-            }
+            await setDoc(doc(db, 'users', firebaseUser.uid), userData);
           }
           setUser(userData);
+          setLoginError(null);
         } catch (error) {
           console.error("Error fetching user data:", error);
-          // Fallback user if offline
-          setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email || '',
-            displayName: firebaseUser.displayName || '',
-            photoURL: firebaseUser.photoURL || '',
-            role: firebaseUser.email === 'tamrri@gmail.com' ? 'executive' : 'unassigned',
-          });
+          if (isSpecialAdmin) {
+            setUser({
+              uid: firebaseUser.uid,
+              email: userEmail,
+              displayName: firebaseUser.displayName || '',
+              photoURL: firebaseUser.photoURL || '',
+              role: 'executive',
+            });
+          } else {
+            setUser(null);
+            setLoginError("เกิดข้อผิดพลาดในการเชื่อมต่อเพื่อตรวจสอบสิทธิ์");
+          }
         }
       } else {
         setUser(null);
@@ -66,9 +100,11 @@ export default function App() {
 
   const handleLogin = async () => {
     try {
+      setLoginError(null);
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       console.error("Login failed", error);
+      setLoginError("เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วยบัญชี Google");
     }
   };
 
@@ -94,6 +130,8 @@ export default function App() {
         handleLogin={handleLogin} 
         handleLogout={handleLogout} 
         handleRoleSelect={handleRoleSelect} 
+        loginError={loginError}
+        setLoginError={setLoginError}
       />
     </BrowserRouter>
   );
@@ -103,12 +141,16 @@ function AppContent({
   user,
   handleLogin,
   handleLogout,
-  handleRoleSelect
+  handleRoleSelect,
+  loginError,
+  setLoginError
 }: {
   user: User | null;
   handleLogin: () => Promise<void>;
   handleLogout: () => Promise<void>;
   handleRoleSelect: (role: Role) => Promise<void>;
+  loginError: string | null;
+  setLoginError: (error: string | null) => void;
 }) {
   const location = useLocation();
   const currentPath = location.pathname;
@@ -118,10 +160,16 @@ function AppContent({
       {/* Mobile Top Header */}
       <header className="md:hidden bg-indigo-900 text-white h-16 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-40 shadow-md">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-indigo-400 rounded-lg flex items-center justify-center text-white font-bold text-lg">
-            B
+          <img 
+            src="https://krustation.com/wp-content/uploads/2026/03/logo-obec-1.jpg" 
+            alt="โลโก้ สพฐ." 
+            className="w-11 h-11 object-contain rounded-full border border-amber-300/30 bg-white p-0.5 shadow-sm"
+            referrerPolicy="no-referrer"
+          />
+          <div className="flex flex-col leading-snug">
+            <span className="font-extrabold text-sm tracking-wide text-amber-300">ภารกิจผู้บริหาร</span>
+            <span className="font-bold text-[11px] text-indigo-100">สพป.แม่ฮ่องสอน เขต 1</span>
           </div>
-          <span className="font-bold text-base tracking-wide">MHS1 Tracker</span>
         </div>
         <div>
           {!user ? (
@@ -148,11 +196,17 @@ function AppContent({
 
       {/* Desktop Sidebar (hidden on mobile) */}
       <aside className="hidden md:flex w-64 bg-indigo-900 flex-shrink-0 flex-col">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-400 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-            B
+        <div className="p-5 flex items-center gap-3 border-b border-indigo-950/40">
+          <img 
+            src="https://krustation.com/wp-content/uploads/2026/03/logo-obec-1.jpg" 
+            alt="โลโก้ สพฐ." 
+            className="w-14 h-14 object-contain rounded-full border-2 border-amber-300/40 bg-white p-0.5 shadow"
+            referrerPolicy="no-referrer"
+          />
+          <div className="flex flex-col leading-snug">
+            <h2 className="font-black text-amber-300 text-base tracking-wide">ภารกิจผู้บริหาร</h2>
+            <span className="text-xs text-indigo-100 font-bold">สพป.แม่ฮ่องสอน เขต 1</span>
           </div>
-          <h2 className="font-bold text-white text-lg">MHS1 Tracker</h2>
         </div>
         <nav className="flex-1 p-4 space-y-2">
           <Link 
@@ -320,6 +374,25 @@ function AppContent({
             </Link>
           )}
         </nav>
+      )}
+
+      {/* Login Error Modal */}
+      {loginError && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto animate-bounce">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800">การเข้าสู่ระบบถูกปฏิเสธ</h3>
+            <p className="text-slate-600 text-sm leading-relaxed">{loginError}</p>
+            <button
+              onClick={() => setLoginError(null)}
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-xl transition duration-150 active:scale-95 shadow-md"
+            >
+              ตกลง
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

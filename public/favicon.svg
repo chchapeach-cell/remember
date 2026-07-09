@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Background Gradient: Rich Golden Sunset representing OBEC / สพฐ. colors -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#D97706" />
+    </linearGradient>
+    <!-- Inner shadow & glow -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- iOS-style Squircle background -->
+  <rect x="32" y="32" width="448" height="448" rx="100" fill="url(#bgGrad)" filter="url(#shadow)" />
+
+  <!-- Calendar Base Card -->
+  <rect x="112" y="144" width="288" height="264" rx="36" fill="#FFFFFF" />
+
+  <!-- Calendar Header Block (Vibrant Orange-Red) -->
+  <path d="M 112 180 C 112 154 132 144 156 144 L 356 144 C 380 144 400 154 400 180 L 400 220 L 112 220 Z" fill="#DC2626" />
+
+  <!-- Calendar Rings/Hangers -->
+  <rect x="168" y="96" width="32" height="80" rx="16" fill="#4B5563" />
+  <rect x="312" y="96" width="32" height="80" rx="16" fill="#4B5563" />
+
+  <!-- Calendar Header Dots / Ring Hole Highlights -->
+  <circle cx="184" cy="136" r="8" fill="#1F2937" />
+  <circle cx="328" cy="136" r="8" fill="#1F2937" />
+
+  <!-- Calendar Grid / Content representation (Minimalist & Aesthetic) -->
+  <rect x="152" y="260" width="48" height="36" rx="8" fill="#E5E7EB" />
+  <rect x="232" y="260" width="48" height="36" rx="8" fill="#E5E7EB" />
+  <rect x="312" y="260" width="48" height="36" rx="8" fill="#E5E7EB" />
+
+  <rect x="152" y="324" width="48" height="36" rx="8" fill="#E5E7EB" />
+  <!-- Accent Selected Day - Represents Active Tracking/Task (Golden Circle with Star or Heart) -->
+  <rect x="232" y="324" width="48" height="36" rx="8" fill="#F59E0B" />
+  <rect x="312" y="324" width="48" height="36" rx="8" fill="#E5E7EB" />
+
+  <!-- Outer Ring Overlay for Premium Glass-like gloss finish -->
+  <path d="M 32 32 Q 256 180 480 32" fill="none" stroke="#FFFFFF" stroke-width="8" opacity="0.15" />
+</svg>
