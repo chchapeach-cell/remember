@@ -81,8 +81,8 @@ export default function TaskForm({ task, user, onClose, onDelete }: { task: Task
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 overflow-y-auto flex items-start justify-center p-4 py-8">
+      <div className="bg-white rounded-3xl shadow-xl w-full max-w-md my-auto relative overflow-hidden flex flex-col">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h2 className="text-xl font-bold text-slate-800">{task ? 'แก้ไขภารกิจ' : 'เพิ่มภารกิจใหม่'}</h2>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition">
@@ -176,7 +176,7 @@ export default function TaskForm({ task, user, onClose, onDelete }: { task: Task
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">ผู้รับผิดชอบ</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {['นางสาววรินทร ปัดกอง', 'นายสากล ชนะบูรณ์', 'นายจักรวาล เขียวดีเจริญกุล', 'นางสาวญาสุมินทร์ นนทมาตร'].map(name => {
                 const isSelected = assignees.includes(name);
                 return (

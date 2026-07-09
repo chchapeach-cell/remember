@@ -77,22 +77,22 @@ export default function Report({ user }: { user: User | null }) {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-4 gap-4">
-        <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex flex-col">
-          <span className="text-indigo-600 text-sm font-medium mb-1">งานทั้งหมดในเดือนนี้</span>
-          <span className="text-3xl font-bold text-indigo-900">{stats.total}</span>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="bg-indigo-50 p-4 md:p-6 rounded-3xl border border-indigo-100 flex flex-col">
+          <span className="text-indigo-600 text-xs md:text-sm font-medium mb-1">งานทั้งหมดในเดือนนี้</span>
+          <span className="text-2xl md:text-3xl font-bold text-indigo-900">{stats.total}</span>
         </div>
-        <div className="bg-green-50 p-6 rounded-3xl border border-green-100 flex flex-col">
-          <span className="text-green-600 text-sm font-medium mb-1">งานที่เสร็จสิ้น</span>
-          <span className="text-3xl font-bold text-green-900">{stats.completed}</span>
+        <div className="bg-green-50 p-4 md:p-6 rounded-3xl border border-green-100 flex flex-col">
+          <span className="text-green-600 text-xs md:text-sm font-medium mb-1">งานที่เสร็จสิ้น</span>
+          <span className="text-2xl md:text-3xl font-bold text-green-900">{stats.completed}</span>
         </div>
-        <div className="bg-orange-50 p-6 rounded-3xl border border-orange-100 flex flex-col">
-          <span className="text-orange-600 text-sm font-medium mb-1">กำลังดำเนินการ</span>
-          <span className="text-3xl font-bold text-orange-900">{stats.inProgress}</span>
+        <div className="bg-orange-50 p-4 md:p-6 rounded-3xl border border-orange-100 flex flex-col">
+          <span className="text-orange-600 text-xs md:text-sm font-medium mb-1">กำลังดำเนินการ</span>
+          <span className="text-2xl md:text-3xl font-bold text-orange-900">{stats.inProgress}</span>
         </div>
-        <div className="bg-slate-100 p-6 rounded-3xl border border-slate-200 flex flex-col">
-          <span className="text-slate-600 text-sm font-medium mb-1">รอดำเนินการ</span>
-          <span className="text-3xl font-bold text-slate-900">{stats.pending}</span>
+        <div className="bg-slate-100 p-4 md:p-6 rounded-3xl border border-slate-200 flex flex-col">
+          <span className="text-slate-600 text-xs md:text-sm font-medium mb-1">รอดำเนินการ</span>
+          <span className="text-2xl md:text-3xl font-bold text-slate-900">{stats.pending}</span>
         </div>
       </div>
 

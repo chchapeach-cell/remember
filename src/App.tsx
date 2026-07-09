@@ -3,7 +3,7 @@ import { auth, db, googleProvider } from './firebase';
 import { signInWithPopup, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { User, Role } from './types';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { LogOut, Home, Calendar, PieChart, Bell, LayoutDashboard, Settings } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
@@ -87,80 +87,158 @@ export default function App() {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">กำลังโหลด...</div>;
   }
 
-  // We handle redirection to /setup below in Routes.
-
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
-        {/* Sidebar */}
-        <aside className="w-full md:w-64 bg-indigo-900 flex-shrink-0 flex flex-col">
-          <div className="p-6 flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-400 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-              B
-            </div>
-            <h2 className="font-bold text-white text-lg">MHS1 Tracker</h2>
+      <AppContent 
+        user={user} 
+        handleLogin={handleLogin} 
+        handleLogout={handleLogout} 
+        handleRoleSelect={handleRoleSelect} 
+      />
+    </BrowserRouter>
+  );
+}
+
+function AppContent({
+  user,
+  handleLogin,
+  handleLogout,
+  handleRoleSelect
+}: {
+  user: User | null;
+  handleLogin: () => Promise<void>;
+  handleLogout: () => Promise<void>;
+  handleRoleSelect: (role: Role) => Promise<void>;
+}) {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-16 md:pb-0">
+      {/* Mobile Top Header */}
+      <header className="md:hidden bg-indigo-900 text-white h-16 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-40 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-indigo-400 rounded-lg flex items-center justify-center text-white font-bold text-lg">
+            B
           </div>
-          <nav className="flex-1 p-4 space-y-2">
-            <Link to="/tasks" className="flex items-center gap-3 px-4 py-3 text-indigo-300 hover:bg-white/10 hover:text-white rounded-xl transition">
-              <Calendar className="w-5 h-5" />
-              <span className="font-medium">ตารางงาน</span>
-            </Link>
-            <Link to="/dashboard" className="flex items-center gap-3 px-4 py-3 text-indigo-300 hover:bg-white/10 hover:text-white rounded-xl transition">
-              <LayoutDashboard className="w-5 h-5" />
-              <span className="font-medium">ภาพรวม</span>
-            </Link>
-            <Link to="/report" className="flex items-center gap-3 px-4 py-3 text-indigo-300 hover:bg-white/10 hover:text-white rounded-xl transition">
-              <PieChart className="w-5 h-5" />
-              <span className="font-medium">รายงาน</span>
-            </Link>
-            {user?.role === 'staff' || user?.role === 'executive' ? (
-               <Link to="/settings" className="flex items-center gap-3 px-4 py-3 text-indigo-300 hover:bg-white/10 hover:text-white rounded-xl transition">
-                 <Settings className="w-5 h-5" />
-                 <span className="font-medium">ตั้งค่าระบบ</span>
-               </Link>
-            ) : null}
-          </nav>
-          
-          {/* User Profile in Sidebar (Mobile Only or Hidden if we move it to Top Right) */}
-          {user && (
-            <div className="p-4 hidden md:block">
-              <div className="flex items-center gap-3 mb-4">
-                <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full border-2 border-indigo-400" />
-                <div className="overflow-hidden">
-                  <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
-                  <p className="text-xs text-indigo-300 capitalize">{user.role}</p>
-                </div>
-              </div>
+          <span className="font-bold text-base tracking-wide">MHS1 Tracker</span>
+        </div>
+        <div>
+          {!user ? (
+            <button
+              onClick={handleLogin}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-xl text-xs font-bold transition shadow-sm"
+            >
+              เข้าสู่ระบบ
+            </button>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-indigo-400" />
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-red-300 bg-white/10 hover:bg-red-500/20 rounded-lg transition"
+                className="p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition"
+                title="ออกจากระบบ"
               >
                 <LogOut className="w-4 h-4" />
-                ออกจากระบบ
               </button>
             </div>
           )}
-        </aside>
+        </div>
+      </header>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto relative flex flex-col">
-          {/* Top Navigation / Header area for Login button */}
-          <div className="absolute top-4 right-4 md:top-8 md:right-8 z-10">
-            {!user ? (
-               <button
-                 onClick={handleLogin}
-                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition shadow-sm flex items-center gap-2"
-               >
-                 เข้าสู่ระบบ
-               </button>
-            ) : (
-               <div className="md:hidden flex items-center gap-3 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-                 <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-indigo-100" />
-                 <button onClick={handleLogout} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><LogOut className="w-4 h-4" /></button>
-               </div>
-            )}
+      {/* Desktop Sidebar (hidden on mobile) */}
+      <aside className="hidden md:flex w-64 bg-indigo-900 flex-shrink-0 flex-col">
+        <div className="p-6 flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-400 rounded-xl flex items-center justify-center text-white font-bold text-xl">
+            B
           </div>
+          <h2 className="font-bold text-white text-lg">MHS1 Tracker</h2>
+        </div>
+        <nav className="flex-1 p-4 space-y-2">
+          <Link 
+            to="/tasks" 
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+              currentPath === '/tasks' || currentPath === '/'
+                ? 'bg-white/10 text-white font-semibold' 
+                : 'text-indigo-300 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            <span className="font-medium">ตารางงาน</span>
+          </Link>
+          <Link 
+            to="/dashboard" 
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+              currentPath === '/dashboard'
+                ? 'bg-white/10 text-white font-semibold' 
+                : 'text-indigo-300 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="font-medium">ภาพรวม</span>
+          </Link>
+          <Link 
+            to="/report" 
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+              currentPath === '/report'
+                ? 'bg-white/10 text-white font-semibold' 
+                : 'text-indigo-300 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <PieChart className="w-5 h-5" />
+            <span className="font-medium">รายงาน</span>
+          </Link>
+          {user?.role === 'staff' || user?.role === 'executive' ? (
+             <Link 
+               to="/settings" 
+               className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                 currentPath === '/settings'
+                   ? 'bg-white/10 text-white font-semibold' 
+                   : 'text-indigo-300 hover:bg-white/5 hover:text-white'
+               }`}
+             >
+               <Settings className="w-5 h-5" />
+               <span className="font-medium">ตั้งค่าระบบ</span>
+             </Link>
+          ) : null}
+        </nav>
+        
+        {/* User Profile in Sidebar */}
+        {user && (
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-4">
+              <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full border-2 border-indigo-400" />
+              <div className="overflow-hidden">
+                <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
+                <p className="text-xs text-indigo-300 capitalize">{user.role}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-red-300 bg-white/10 hover:bg-red-500/20 rounded-lg transition"
+            >
+              <LogOut className="w-4 h-4" />
+              ออกจากระบบ
+            </button>
+          </div>
+        )}
+      </aside>
 
+      {/* Main Content (with margin adjustments for mobile header and navigation bar) */}
+      <main className="flex-1 overflow-x-hidden overflow-y-auto relative flex flex-col pt-20 md:pt-0">
+        {/* Desktop Top Right Actions */}
+        <div className="absolute top-4 right-4 md:top-8 md:right-8 z-10 hidden md:block">
+          {!user ? (
+             <button
+               onClick={handleLogin}
+               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-sm font-semibold transition shadow-sm flex items-center gap-2"
+             >
+               เข้าสู่ระบบ
+             </button>
+          ) : null}
+        </div>
+
+        <div className="flex-1 px-4 py-6 md:p-8">
           <Routes>
             {user && user.role === 'general' ? (
               <>
@@ -178,8 +256,60 @@ export default function App() {
               </>
             )}
           </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+        </div>
+      </main>
+
+      {/* Mobile Bottom Navigation (fixed at bottom of screen) */}
+      {user && user.role !== 'general' && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-2 z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+          <Link 
+            to="/tasks" 
+            className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+              currentPath === '/tasks' || currentPath === '/'
+                ? 'text-indigo-600 font-bold scale-105' 
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Calendar className="w-5 h-5" />
+            <span className="text-[10px] mt-1 font-medium">ตารางงาน</span>
+          </Link>
+          <Link 
+            to="/dashboard" 
+            className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+              currentPath === '/dashboard' 
+                ? 'text-indigo-600 font-bold scale-105' 
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="text-[10px] mt-1 font-medium">ภาพรวม</span>
+          </Link>
+          <Link 
+            to="/report" 
+            className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+              currentPath === '/report' 
+                ? 'text-indigo-600 font-bold scale-105' 
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <PieChart className="w-5 h-5" />
+            <span className="text-[10px] mt-1 font-medium">รายงาน</span>
+          </Link>
+          {(user?.role === 'staff' || user?.role === 'executive') && (
+            <Link 
+              to="/settings" 
+              className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+                currentPath === '/settings' 
+                  ? 'text-indigo-600 font-bold scale-105' 
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-[10px] mt-1 font-medium">ตั้งค่า</span>
+            </Link>
+          )}
+        </nav>
+      )}
+    </div>
   );
 }
