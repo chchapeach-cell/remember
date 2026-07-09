@@ -38,7 +38,7 @@ export default function App() {
               email: firebaseUser.email || '',
               displayName: firebaseUser.displayName || '',
               photoURL: firebaseUser.photoURL || '',
-              role: isSpecialAdmin ? 'executive' : 'general', // Temporary, will be updated via RoleSelector unless admin
+              role: isSpecialAdmin ? 'executive' : 'unassigned', // Temporary, will be updated via RoleSelector unless admin
             };
             if (isSpecialAdmin) {
                await setDoc(doc(db, 'users', firebaseUser.uid), userData);
@@ -53,7 +53,7 @@ export default function App() {
             email: firebaseUser.email || '',
             displayName: firebaseUser.displayName || '',
             photoURL: firebaseUser.photoURL || '',
-            role: firebaseUser.email === 'tamrri@gmail.com' ? 'executive' : 'general',
+            role: firebaseUser.email === 'tamrri@gmail.com' ? 'executive' : 'unassigned',
           });
         }
       } else {
@@ -166,28 +166,32 @@ function AppContent({
             <Calendar className="w-5 h-5" />
             <span className="font-medium">ตารางงาน</span>
           </Link>
-          <Link 
-            to="/dashboard" 
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-              currentPath === '/dashboard'
-                ? 'bg-white/10 text-white font-semibold' 
-                : 'text-indigo-300 hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="font-medium">ภาพรวม</span>
-          </Link>
-          <Link 
-            to="/report" 
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-              currentPath === '/report'
-                ? 'bg-white/10 text-white font-semibold' 
-                : 'text-indigo-300 hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <PieChart className="w-5 h-5" />
-            <span className="font-medium">รายงาน</span>
-          </Link>
+          {user && user.role !== 'general' && user.role !== 'unassigned' && (
+            <>
+              <Link 
+                to="/dashboard" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                  currentPath === '/dashboard'
+                    ? 'bg-white/10 text-white font-semibold' 
+                    : 'text-indigo-300 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="font-medium">ภาพรวม</span>
+              </Link>
+              <Link 
+                to="/report" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                  currentPath === '/report'
+                    ? 'bg-white/10 text-white font-semibold' 
+                    : 'text-indigo-300 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <PieChart className="w-5 h-5" />
+                <span className="font-medium">รายงาน</span>
+              </Link>
+            </>
+          )}
           {user?.role === 'staff' || user?.role === 'executive' ? (
              <Link 
                to="/settings" 
@@ -210,7 +214,9 @@ function AppContent({
               <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full border-2 border-indigo-400" />
               <div className="overflow-hidden">
                 <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
-                <p className="text-xs text-indigo-300 capitalize">{user.role}</p>
+                <p className="text-xs text-indigo-300 capitalize">
+                  {user.role === 'general' ? 'บุคลากรทั่วไป' : user.role}
+                </p>
               </div>
             </div>
             <button
@@ -240,10 +246,15 @@ function AppContent({
 
         <div className="flex-1 px-4 py-6 md:p-8">
           <Routes>
-            {user && user.role === 'general' ? (
+            {user && user.role === 'unassigned' ? (
               <>
                 <Route path="/setup" element={<RoleSelector onSelect={handleRoleSelect} />} />
                 <Route path="*" element={<Navigate to="/setup" />} />
+              </>
+            ) : (!user || user.role === 'general') ? (
+              <>
+                <Route path="/tasks" element={<TaskList user={user} />} />
+                <Route path="*" element={<Navigate to="/tasks" />} />
               </>
             ) : (
               <>
@@ -260,7 +271,7 @@ function AppContent({
       </main>
 
       {/* Mobile Bottom Navigation (fixed at bottom of screen) */}
-      {user && user.role !== 'general' && (
+      {user && user.role !== 'general' && user.role !== 'unassigned' && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-2 z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
           <Link 
             to="/tasks" 

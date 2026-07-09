@@ -163,12 +163,30 @@ export default function TaskList({ user }: { user: User | null }) {
   });
 
   const sortedFilteredTasks = [...filteredTasks].sort((a, b) => {
-    const dateCompare = a.date.localeCompare(b.date);
-    if (dateCompare !== 0) return dateCompare;
-    if (a.time && b.time) return a.time.localeCompare(b.time);
-    if (a.time) return -1;
-    if (b.time) return 1;
-    return 0;
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const aIsPast = a.date < todayStr;
+    const bIsPast = b.date < todayStr;
+
+    if (aIsPast && !bIsPast) return 1;
+    if (!aIsPast && bIsPast) return -1;
+
+    if (aIsPast) {
+      // Past tasks: sort descending (most recent past first)
+      const dateCompare = b.date.localeCompare(a.date);
+      if (dateCompare !== 0) return dateCompare;
+      if (a.time && b.time) return b.time.localeCompare(a.time);
+      if (a.time) return 1;
+      if (b.time) return -1;
+      return 0;
+    } else {
+      // Current/future tasks: sort ascending (nearest first)
+      const dateCompare = a.date.localeCompare(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      if (a.time && b.time) return a.time.localeCompare(b.time);
+      if (a.time) return -1;
+      if (b.time) return 1;
+      return 0;
+    }
   });
 
   const getTasksForDay = (day: Date) => {
@@ -241,14 +259,13 @@ export default function TaskList({ user }: { user: User | null }) {
                     <th className="pb-3 font-medium">วันที่</th>
                     <th className="pb-3 font-medium">ผู้รับผิดชอบ</th>
                     <th className="pb-3 font-medium text-center">ความสำคัญ</th>
-                    <th className="pb-3 font-medium">สถานะ</th>
                     {canEdit && <th className="pb-3 font-medium text-right">จัดการ</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {sortedFilteredTasks.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-500">ไม่มีข้อมูลภารกิจ</td>
+                      <td colSpan={5} className="p-8 text-center text-slate-500">ไม่มีข้อมูลภารกิจ</td>
                     </tr>
                   ) : sortedFilteredTasks.map(task => (
                     <tr key={task.id} className="hover:bg-slate-50 transition">
@@ -279,25 +296,6 @@ export default function TaskList({ user }: { user: User | null }) {
                       </td>
                       <td className="p-4 whitespace-nowrap text-center">
                         {priorityBadge(task.priority)}
-                      </td>
-                      <td className="p-4 whitespace-nowrap">
-                        {canEdit ? (
-                          <select
-                            value={task.status}
-                            onChange={(e) => handleStatusChange(task.id, e.target.value as Task['status'])}
-                            className={`text-sm border-0 rounded-full px-3 py-1.5 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500 ${
-                              task.status === 'pending' ? 'bg-slate-100 text-slate-700' :
-                              task.status === 'in_progress' ? 'bg-orange-50 text-orange-700' :
-                              'bg-green-50 text-green-700'
-                            }`}
-                          >
-                            <option value="pending">รอดำเนินการ</option>
-                            <option value="in_progress">กำลังดำเนินการ</option>
-                            <option value="completed">เสร็จสิ้น</option>
-                          </select>
-                        ) : (
-                          statusBadge(task.status)
-                        )}
                       </td>
                       {canEdit && (
                         <td className="p-4 whitespace-nowrap text-right space-x-2">
@@ -388,34 +386,13 @@ export default function TaskList({ user }: { user: User | null }) {
                     </div>
                   </div>
 
-                  {/* Assignee & Status line */}
+                  {/* Assignee line */}
                   <div className="flex flex-col gap-3 pt-3 border-t border-slate-100">
                     <div className="text-xs text-slate-600">
                       <span className="font-semibold text-slate-400 block mb-1">ผู้รับผิดชอบ:</span>
                       <p className="font-medium text-slate-700 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
                         {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : '-')}
                       </p>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-xs font-semibold text-slate-400">สถานะ:</span>
-                      {canEdit ? (
-                        <select
-                          value={task.status}
-                          onChange={(e) => handleStatusChange(task.id, e.target.value as Task['status'])}
-                          className={`text-xs font-bold border border-slate-200 rounded-full px-4 py-2 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition ${
-                            task.status === 'pending' ? 'bg-slate-100 text-slate-700' :
-                            task.status === 'in_progress' ? 'bg-orange-50 text-orange-700 border-orange-100' :
-                            'bg-green-50 text-green-700 border-green-100'
-                          }`}
-                        >
-                          <option value="pending">รอดำเนินการ</option>
-                          <option value="in_progress">กำลังดำเนินการ</option>
-                          <option value="completed">เสร็จสิ้น</option>
-                        </select>
-                      ) : (
-                        statusBadge(task.status)
-                      )}
                     </div>
                   </div>
                 </div>

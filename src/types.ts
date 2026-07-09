@@ -1,4 +1,4 @@
-export type Role = 'executive' | 'staff' | 'general';
+export type Role = 'executive' | 'staff' | 'general' | 'unassigned';
 
 export interface User {
   uid: string;
