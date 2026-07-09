@@ -230,63 +230,183 @@ export default function TaskList({ user }: { user: User | null }) {
       </header>
 
       {viewMode === 'list' ? (
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-6">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-slate-400 text-left border-b border-slate-100">
-                <tr>
-                  <th className="pb-3 font-medium">ชื่องาน</th>
-                  <th className="pb-3 font-medium">วันที่</th>
-                  <th className="pb-3 font-medium">ผู้รับผิดชอบ</th>
-                  <th className="pb-3 font-medium text-center">ความสำคัญ</th>
-                  <th className="pb-3 font-medium">สถานะ</th>
-                  {canEdit && <th className="pb-3 font-medium text-right">จัดการ</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {sortedFilteredTasks.length === 0 ? (
+        <div className="space-y-4">
+          {/* Desktop view (md and up) */}
+          <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-6">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-slate-400 text-left border-b border-slate-100">
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-500">ไม่มีข้อมูลภารกิจ</td>
+                    <th className="pb-3 font-medium">ชื่องาน</th>
+                    <th className="pb-3 font-medium">วันที่</th>
+                    <th className="pb-3 font-medium">ผู้รับผิดชอบ</th>
+                    <th className="pb-3 font-medium text-center">ความสำคัญ</th>
+                    <th className="pb-3 font-medium">สถานะ</th>
+                    {canEdit && <th className="pb-3 font-medium text-right">จัดการ</th>}
                   </tr>
-                ) : sortedFilteredTasks.map(task => (
-                  <tr key={task.id} className="hover:bg-slate-50 transition">
-                    <td className="p-4">
-                      <p className="font-medium text-slate-900 flex items-center gap-2">
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {sortedFilteredTasks.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-500">ไม่มีข้อมูลภารกิจ</td>
+                    </tr>
+                  ) : sortedFilteredTasks.map(task => (
+                    <tr key={task.id} className="hover:bg-slate-50 transition">
+                      <td className="p-4">
+                        <p className="font-medium text-slate-900 flex items-center gap-2">
+                          {task.title}
+                          {task.attachmentUrl && (
+                            <a
+                              href={task.attachmentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:text-indigo-800"
+                              title="ดูเอกสารแนบ"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Paperclip className="w-4 h-4" />
+                            </a>
+                          )}
+                        </p>
+                        <p className="text-sm text-slate-500 line-clamp-1">{task.description}</p>
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        {dateBadge(task.date)}
+                        {task.time && <div className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><Clock className="w-3 h-3" /> {task.time} น.</div>}
+                      </td>
+                      <td className="p-4 whitespace-nowrap text-sm text-slate-600">
+                        {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : <span className="text-slate-400">-</span>)}
+                      </td>
+                      <td className="p-4 whitespace-nowrap text-center">
+                        {priorityBadge(task.priority)}
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        {canEdit ? (
+                          <select
+                            value={task.status}
+                            onChange={(e) => handleStatusChange(task.id, e.target.value as Task['status'])}
+                            className={`text-sm border-0 rounded-full px-3 py-1.5 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500 ${
+                              task.status === 'pending' ? 'bg-slate-100 text-slate-700' :
+                              task.status === 'in_progress' ? 'bg-orange-50 text-orange-700' :
+                              'bg-green-50 text-green-700'
+                            }`}
+                          >
+                            <option value="pending">รอดำเนินการ</option>
+                            <option value="in_progress">กำลังดำเนินการ</option>
+                            <option value="completed">เสร็จสิ้น</option>
+                          </select>
+                        ) : (
+                          statusBadge(task.status)
+                        )}
+                      </td>
+                      {canEdit && (
+                        <td className="p-4 whitespace-nowrap text-right space-x-2">
+                          <button
+                            onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(task.id)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile view (sm and down) */}
+          <div className="block md:hidden space-y-4">
+            {sortedFilteredTasks.length === 0 ? (
+              <div className="bg-white rounded-3xl p-8 text-center text-slate-500 border border-slate-200 shadow-sm">
+                ไม่มีข้อมูลภารกิจ
+              </div>
+            ) : (
+              sortedFilteredTasks.map(task => (
+                <div key={task.id} className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+                  {/* Top segment: Title & Actions */}
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="space-y-1">
+                      <h3 className="font-bold text-slate-900 flex items-center flex-wrap gap-2 text-base leading-snug">
                         {task.title}
                         {task.attachmentUrl && (
                           <a
                             href={task.attachmentUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-indigo-600 hover:text-indigo-800"
+                            className="text-indigo-600 hover:text-indigo-800 p-1 bg-indigo-50 rounded-lg transition"
                             title="ดูเอกสารแนบ"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <Paperclip className="w-4 h-4" />
+                            <Paperclip className="w-3.5 h-3.5" />
                           </a>
                         )}
-                      </p>
-                      <p className="text-sm text-slate-500 line-clamp-1">{task.description}</p>
-                    </td>
-                    <td className="p-4 whitespace-nowrap">
+                      </h3>
+                      {task.description && (
+                        <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{task.description}</p>
+                      )}
+                    </div>
+
+                    {canEdit && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(task.id)}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Badges/Meta line: Date, Time, Priority */}
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50/50 p-2.5 rounded-2xl border border-slate-100">
+                    <div className="flex-shrink-0">
                       {dateBadge(task.date)}
-                      {task.time && <div className="text-xs text-slate-400 mt-1.5 flex items-center gap-1"><Clock className="w-3 h-3" /> {task.time} น.</div>}
-                    </td>
-                    <td className="p-4 whitespace-nowrap text-sm text-slate-600">
-                      {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : <span className="text-slate-400">-</span>)}
-                    </td>
-                    <td className="p-4 whitespace-nowrap text-center">
+                    </div>
+                    {task.time && (
+                      <div className="text-xs text-slate-500 bg-white px-2.5 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        {task.time} น.
+                      </div>
+                    )}
+                    <div className="flex-shrink-0">
                       {priorityBadge(task.priority)}
-                    </td>
-                    <td className="p-4 whitespace-nowrap">
+                    </div>
+                  </div>
+
+                  {/* Assignee & Status line */}
+                  <div className="flex flex-col gap-3 pt-3 border-t border-slate-100">
+                    <div className="text-xs text-slate-600">
+                      <span className="font-semibold text-slate-400 block mb-1">ผู้รับผิดชอบ:</span>
+                      <p className="font-medium text-slate-700 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                        {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : '-')}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs font-semibold text-slate-400">สถานะ:</span>
                       {canEdit ? (
                         <select
                           value={task.status}
                           onChange={(e) => handleStatusChange(task.id, e.target.value as Task['status'])}
-                          className={`text-sm border-0 rounded-full px-3 py-1.5 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500 ${
+                          className={`text-xs font-bold border border-slate-200 rounded-full px-4 py-2 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm transition ${
                             task.status === 'pending' ? 'bg-slate-100 text-slate-700' :
-                            task.status === 'in_progress' ? 'bg-orange-50 text-orange-700' :
-                            'bg-green-50 text-green-700'
+                            task.status === 'in_progress' ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                            'bg-green-50 text-green-700 border-green-100'
                           }`}
                         >
                           <option value="pending">รอดำเนินการ</option>
@@ -296,27 +416,11 @@ export default function TaskList({ user }: { user: User | null }) {
                       ) : (
                         statusBadge(task.status)
                       )}
-                    </td>
-                    {canEdit && (
-                      <td className="p-4 whitespace-nowrap text-right space-x-2">
-                        <button
-                          onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(task.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       ) : (
