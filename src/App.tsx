@@ -246,7 +246,7 @@ function AppContent({
               </Link>
             </>
           )}
-          {user?.role === 'staff' || user?.role === 'executive' ? (
+          {user && user.role !== 'unassigned' && (
              <Link 
                to="/settings" 
                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
@@ -258,7 +258,7 @@ function AppContent({
                <Settings className="w-5 h-5" />
                <span className="font-medium">ตั้งค่าระบบ</span>
              </Link>
-          ) : null}
+          )}
         </nav>
         
         {/* User Profile in Sidebar */}
@@ -308,6 +308,7 @@ function AppContent({
             ) : (!user || user.role === 'general') ? (
               <>
                 <Route path="/" element={<TaskList user={user} />} />
+                <Route path="/settings" element={<SettingsPage user={user} />} />
                 <Route path="/tasks" element={<Navigate to="/" />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </>
@@ -362,19 +363,17 @@ function AppContent({
             <PieChart className="w-5 h-5" />
             <span className="text-[10px] mt-1 font-medium">รายงาน</span>
           </Link>
-          {(user?.role === 'staff' || user?.role === 'executive') && (
-            <Link 
-              to="/settings" 
-              className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
-                currentPath === '/settings' 
-                  ? 'text-indigo-600 font-bold scale-105' 
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-              <span className="text-[10px] mt-1 font-medium">ตั้งค่า</span>
-            </Link>
-          )}
+          <Link 
+            to="/settings" 
+            className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+              currentPath === '/settings' 
+                ? 'text-indigo-600 font-bold scale-105' 
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+            <span className="text-[10px] mt-1 font-medium">ตั้งค่า</span>
+          </Link>
         </nav>
       )}
 

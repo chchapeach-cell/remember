@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role } from '../types';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc } from 'firebase/firestore';
-import { Settings, Save, CheckCircle2, UserPlus, Trash2, Shield, Users, Mail, AlertTriangle } from 'lucide-react';
+import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { Settings, Save, CheckCircle2, UserPlus, Trash2, Shield, Users, Mail, AlertTriangle, Bell, Info } from 'lucide-react';
+import axios from 'axios';
 
 export default function SettingsPage({ user }: { user: User | null }) {
-  const [activeTab, setActiveTab] = useState<'line' | 'users'>('line');
+  const [activeTab, setActiveTab] = useState<'notifications' | 'users'>('notifications');
   
-  // LINE OA State
-  const [token, setToken] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
+  // Notification State
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [loadingPush, setLoadingPush] = useState(true);
+  const [savingPush, setSavingPush] = useState(false);
+  const [pushSuccess, setPushSuccess] = useState<string | null>(null);
 
   // Allowed Users State
   const [allowedUsers, setAllowedUsers] = useState<{ email: string; role: Role; registered: boolean; uid?: string }[]>([]);
@@ -21,22 +22,22 @@ export default function SettingsPage({ user }: { user: User | null }) {
   const [userActionError, setUserActionError] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(false);
 
-  // Fetch LINE OA settings
+  // Register Service Worker and check push status
   useEffect(() => {
-    const fetchSettings = async () => {
+    const checkPush = async () => {
       try {
-        const docRef = doc(db, 'settings', 'line_oa');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setToken(docSnap.data().token || '');
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+          const registration = await navigator.serviceWorker.register('/sw.js');
+          const subscription = await registration.pushManager.getSubscription();
+          setPushEnabled(!!subscription);
         }
-      } catch (error) {
-        console.error("Error fetching settings", error);
+      } catch (e) {
+        console.error('Push error', e);
       } finally {
-        setLoading(false);
+        setLoadingPush(false);
       }
     };
-    fetchSettings();
+    checkPush();
   }, []);
 
   // Fetch allowed users and actual profiles in real-time
@@ -101,26 +102,65 @@ export default function SettingsPage({ user }: { user: User | null }) {
     };
   }, [activeTab]);
 
-  const handleSaveLineSettings = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || (user.role !== 'staff' && user.role !== 'executive')) return;
-    
-    setSaving(true);
-    setSuccess(false);
+  const handleEnablePush = async () => {
+    if (!user) return;
+    setSavingPush(true);
+    setPushSuccess(null);
     try {
-      await setDoc(doc(db, 'settings', 'line_oa'), {
-        token: token,
-        updatedBy: user.uid,
-        updatedAt: Date.now()
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('เบราว์เซอร์ของคุณไม่รองรับการแจ้งเตือน (Push Notifications)');
+        setSavingPush(false);
+        return;
+      }
+      
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('คุณได้ปฏิเสธการแจ้งเตือน กรุณาเปิดสิทธิ์ในตั้งค่าเบราว์เซอร์');
+        setSavingPush(false);
+        return;
+      }
+      
+      // Get VAPID public key from backend
+      const vapidRes = await axios.get('/api/vapidPublicKey');
+      const applicationServerKey = urlBase64ToUint8Array(vapidRes.data);
+      
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
       });
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      
+      // Save subscription to user document in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, {
+        pushSubscriptions: arrayUnion(JSON.stringify(subscription))
+      });
+      
+      setPushEnabled(true);
+      setPushSuccess('เปิดการแจ้งเตือนบนอุปกรณ์นี้เรียบร้อยแล้ว');
+      setTimeout(() => setPushSuccess(null), 3500);
     } catch (error) {
-      console.error("Error saving settings", error);
-      alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      console.error("Error enabling push:", error);
+      alert('เกิดข้อผิดพลาดในการเปิดแจ้งเตือน: ' + (error as any).message);
     } finally {
-      setSaving(false);
+      setSavingPush(false);
     }
+  };
+  
+  // Utility function for Web Push
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+  
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+  
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
   };
 
   const handleAddUser = async (e: React.FormEvent) => {
@@ -197,13 +237,11 @@ export default function SettingsPage({ user }: { user: User | null }) {
     }
   };
 
-  if (loading) {
-    return <div className="p-8 text-center text-slate-500">กำลังโหลดข้อมูล...</div>;
+  if (!user) {
+    return <div className="p-8 text-center text-red-500">กรุณาเข้าสู่ระบบ</div>;
   }
-
-  if (!user || (user.role !== 'staff' && user.role !== 'executive')) {
-    return <div className="p-8 text-center text-red-500">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</div>;
-  }
+  
+  const isAdmin = user.role === 'staff' || user.role === 'executive';
 
   const roleLabel = (role: Role) => {
     switch(role) {
@@ -227,73 +265,89 @@ export default function SettingsPage({ user }: { user: User | null }) {
       {/* Tabs Menu */}
       <div className="flex border-b border-slate-200 gap-1 overflow-x-auto">
         <button
-          onClick={() => setActiveTab('line')}
+          onClick={() => setActiveTab('notifications')}
           className={`px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'line'
+            activeTab === 'notifications'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Settings className="w-4 h-4" />
-          เชื่อมต่อ LINE OA
+          <Bell className="w-4 h-4" />
+          การแจ้งเตือน (โทรศัพท์/PC)
         </button>
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'users'
-              ? 'border-indigo-600 text-indigo-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          จัดการสิทธิ์ผู้ใช้งาน ({allowedUsers.length || '...'})
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'users'
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            จัดการสิทธิ์ผู้ใช้งาน ({allowedUsers.length || '...'})
+          </button>
+        )}
       </div>
 
-      {/* TAB 1: LINE OA */}
-      {activeTab === 'line' && (
+      {/* TAB 1: NOTIFICATIONS (Web Push) */}
+      {activeTab === 'notifications' && (
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-            <h2 className="text-lg font-bold text-slate-800">การเชื่อมต่อ LINE OA (การแจ้งเตือน)</h2>
-            <p className="text-sm text-slate-500">ระบุ Channel Access Token ของ LINE Official Account เพื่อส่งข้อความแจ้งเตือนอัตโนมัติ</p>
+            <h2 className="text-lg font-bold text-slate-800">การแจ้งเตือนบนอุปกรณ์นี้</h2>
+            <p className="text-sm text-slate-500">เปิดรับการแจ้งเตือนภารกิจใหม่บนโทรศัพท์หรือคอมพิวเตอร์ของคุณโดยตรง ไม่ต้องผ่านแอปพลิเคชันอื่น</p>
           </div>
           
-          <form onSubmit={handleSaveLineSettings} className="p-6 space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">LINE Channel Access Token (Long-lived)</label>
-              <textarea
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="eyJhbGciOiJIUzI1NiJ9..."
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition font-mono text-sm resize-none h-32"
-              />
-              <p className="text-xs text-slate-500 mt-2">
-                หมายเหตุ: หากไม่มีการตั้งค่า ระบบจะข้ามการส่งแจ้งเตือนทาง LINE โดยอัตโนมัติโดยไม่มีข้อผิดพลาด
-              </p>
+          <div className="p-6 space-y-6">
+            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-indigo-500" />
+                  สถานะการแจ้งเตือน
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  {loadingPush ? 'กำลังตรวจสอบ...' : pushEnabled ? 'อุปกรณ์นี้เปิดรับการแจ้งเตือนแล้ว' : 'คุณยังไม่ได้เปิดการแจ้งเตือนบนอุปกรณ์นี้'}
+                </p>
+              </div>
+              
+              <button
+                onClick={handleEnablePush}
+                disabled={savingPush || pushEnabled || loadingPush}
+                className={`px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition shadow-sm ${
+                  pushEnabled 
+                    ? 'bg-green-100 text-green-700 cursor-default' 
+                    : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 disabled:opacity-50'
+                }`}
+              >
+                {pushEnabled ? <CheckCircle2 className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
+                {savingPush ? 'กำลังเปิดใช้งาน...' : pushEnabled ? 'เปิดใช้งานแล้ว' : 'เปิดการแจ้งเตือน'}
+              </button>
             </div>
 
-            <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
-              <button
-                type="submit"
-                disabled={saving}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition shadow-sm disabled:opacity-50"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
-              </button>
-              {success && (
-                <span className="text-green-600 text-sm flex items-center gap-1 font-medium">
-                  <CheckCircle2 className="w-4 h-4" />
-                  บันทึกสำเร็จ
-                </span>
-              )}
+            {pushSuccess && (
+              <div className="p-4 bg-green-50 text-green-700 rounded-xl text-sm flex items-center gap-2 border border-green-100 font-medium">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                {pushSuccess}
+              </div>
+            )}
+
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-2">
+               <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                 <Info className="w-4 h-4 text-indigo-500" />
+                 คำแนะนำเพิ่มเติม
+               </h3>
+               <ul className="text-xs text-slate-500 space-y-1.5 list-disc list-inside">
+                 <li>สำหรับ <strong>iOS (iPhone/iPad)</strong>: กรุณากดปุ่ม Share (แชร์) และเลือก "Add to Home Screen" (เพิ่มไปยังหน้าจอโฮม) ก่อนเปิดการแจ้งเตือน</li>
+                 <li>สำหรับ <strong>Android</strong>: สามารถเปิดใช้งานได้ทันทีผ่านเบราว์เซอร์ Chrome หรือเบราว์เซอร์ที่รองรับ</li>
+                 <li>เมื่อกดเปิดการแจ้งเตือน เบราว์เซอร์จะถามสิทธิ์ (Permission) ให้คุณกดปุ่ม "Allow" (อนุญาต)</li>
+               </ul>
             </div>
-          </form>
+          </div>
         </div>
       )}
 
       {/* TAB 2: ACCESS CONTROL (ALLOWED EMAILS) */}
-      {activeTab === 'users' && (
+      {isAdmin && activeTab === 'users' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Add Allowed User Form */}

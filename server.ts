@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import axios from "axios";
 import fs from "fs";
+import webpush from "web-push";
 
 // Load firebase config
 let firebaseConfig: any = {};
@@ -13,70 +14,95 @@ try {
   console.warn("Could not load firebase config", e);
 }
 
+// Fixed VAPID Keys for this applet (generated once)
+const vapidKeys = {
+  publicKey: 'BI34U_bCSxQ6M8lxrlutHEzb26YuO-mI-bkT5d_CpCeUFW7AbA2mSfAW_QwETVl46bpnbgEMm1XvSwJYFi5ONwE',
+  privateKey: 'OSitgAiR8uJoY3gcuharxqwQ4gPrq_FvYVUiNFfPQ00'
+};
+
+webpush.setVapidDetails(
+  'mailto:support@example.com',
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
 
-  // LINE OA Notification API
+  // Web Push VAPID Public Key
+  app.get("/api/vapidPublicKey", (req, res) => {
+    res.send(vapidKeys.publicKey);
+  });
+
+  // Web Push Notification API
   app.post("/api/notify", async (req, res) => {
     try {
-      const { message, lineUserId } = req.body;
+      const { message, targetUserId } = req.body;
       
-      let token = process.env.LINE_OA_ACCESS_TOKEN?.trim();
-
-      // Fetch from Firestore if not in env
-      if (!token && firebaseConfig.projectId && firebaseConfig.firestoreDatabaseId) {
-        try {
-          const firestoreRes = await axios.get(`https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents/settings/line_oa`);
-          if (firestoreRes.data && firestoreRes.data.fields && firestoreRes.data.fields.token) {
-            token = firestoreRes.data.fields.token.stringValue.trim();
-          }
-        } catch (e) {
-          console.warn("Could not fetch token from Firestore", e);
-        }
-      }
-
-      if (!token) {
-        console.warn("LINE_OA_ACCESS_TOKEN is not configured.");
-        return res.status(200).json({ success: true, message: "LINE token not configured, skipping notification." });
-      }
-
       if (!message) {
         return res.status(400).json({ error: "Message is required" });
       }
 
-      // If lineUserId is provided, push to specific user, else broadcast
-      // For simplicity, we'll use broadcast if no user is provided.
-      // Note: Broadcasting uses a different endpoint than pushing to a specific user.
-      const endpoint = lineUserId 
-        ? "https://api.line.me/v2/bot/message/push"
-        : "https://api.line.me/v2/bot/message/broadcast";
-
-      const payload: any = {
-        messages: [{ type: "text", text: message }]
-      };
-
-      if (lineUserId) {
-        payload.to = lineUserId;
+      if (!firebaseConfig.projectId || !firebaseConfig.firestoreDatabaseId) {
+        return res.status(500).json({ error: "Firebase config missing" });
       }
 
-      const response = await axios.post(endpoint, payload, {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+      // Fetch users from Firestore
+      let users = [];
+      try {
+        const firestoreRes = await axios.get(`https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents/users`);
+        if (firestoreRes.data && firestoreRes.data.documents) {
+          users = firestoreRes.data.documents;
         }
+      } catch (e) {
+        console.warn("Could not fetch users from Firestore", e);
+      }
+
+      const payload = JSON.stringify({
+        title: "ภารกิจผู้บริหาร",
+        body: message,
+        icon: "https://krustation.com/wp-content/uploads/2026/03/logo-obec-1.jpg"
       });
 
-      res.status(200).json({ success: true, data: response.data });
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        console.error("LINE Notification Error: Authentication failed. Please check if your LINE Channel Access Token is valid in the Settings page.");
-      } else {
-        console.error("Error sending LINE notification:", error.response?.data || error.message);
+      let sentCount = 0;
+      let errorCount = 0;
+
+      // Broadcast to all users' subscriptions
+      for (const userDoc of users) {
+        const fields = userDoc.fields;
+        if (fields && fields.pushSubscriptions && fields.pushSubscriptions.arrayValue && fields.pushSubscriptions.arrayValue.values) {
+          
+          // If targetUserId is provided, only send to that user
+          const userIdParts = userDoc.name.split('/');
+          const docUserId = userIdParts[userIdParts.length - 1];
+          if (targetUserId && docUserId !== targetUserId) {
+            continue;
+          }
+
+          const subs = fields.pushSubscriptions.arrayValue.values;
+          for (const sub of subs) {
+            try {
+              if (sub.stringValue) {
+                const subscription = JSON.parse(sub.stringValue);
+                await webpush.sendNotification(subscription, payload);
+                sentCount++;
+              }
+            } catch (error: any) {
+              console.error("Error sending push notification to a device", error.statusCode);
+              errorCount++;
+              // Note: Normally we'd remove expired subscriptions here
+            }
+          }
+        }
       }
-      res.status(200).json({ success: false, error: "Failed to send LINE notification due to invalid token or API error" });
+
+      res.status(200).json({ success: true, sent: sentCount, errors: errorCount });
+    } catch (error: any) {
+      console.error("Error sending push notifications:", error);
+      res.status(500).json({ success: false, error: "Failed to send notifications" });
     }
   });
 
