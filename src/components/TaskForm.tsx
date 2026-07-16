@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { User, Task } from '../types';
-import { db, storage } from '../firebase';
+import { db, storage, auth } from '../firebase';
 import { doc, setDoc, collection } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { X, Send, Trash2, Paperclip, FileText } from 'lucide-react';
@@ -12,7 +12,7 @@ export default function TaskForm({ task, user, onClose, onDelete }: { task: Task
   const [date, setDate] = useState(task?.date || new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(task?.time || '');
   const [assignees, setAssignees] = useState<string[]>(task?.assignees || (task?.assignee ? [task.assignee] : []));
-  const [priority, setPriority] = useState<Task['priority']>(task?.priority || 'medium');
+  const priority = 'medium';
   const [loading, setLoading] = useState(false);
   const [notifyLine, setNotifyLine] = useState(true);
   
@@ -61,10 +61,12 @@ export default function TaskForm({ task, user, onClose, onDelete }: { task: Task
       // Send LINE notification via our backend API
       if (notifyLine) {
         const actionText = task ? 'อัปเดตภารกิจ' : 'เพิ่มภารกิจใหม่';
-        const message = `🔔 ${actionText}\nหัวข้อ: ${title}\nความสำคัญ: ${priority === 'high' ? 'สูง' : priority === 'medium' ? 'ปานกลาง' : 'ต่ำ'}\nวันที่: ${date}\nสถานะ: รอดำเนินการ\n\nโปรดตรวจสอบรายละเอียดในระบบ`;
+        const message = `🔔 ${actionText}\nหัวข้อ: ${title}\nวันที่: ${date}\nสถานะ: รอดำเนินการ\n\nโปรดตรวจสอบรายละเอียดในระบบ`;
         
         try {
-          await axios.post('/api/notify', { message });
+          const idToken = await auth.currentUser?.getIdToken();
+          const headers = idToken ? { Authorization: `Bearer ${idToken}` } : {};
+          await axios.post('/api/notify', { message }, { headers });
         } catch (err) {
           console.error("Failed to send LINE notification", err);
           // Don't block the UI if line fails, but log it
@@ -136,41 +138,9 @@ export default function TaskForm({ task, user, onClose, onDelete }: { task: Task
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">ระดับความสำคัญ</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPriority('high')}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium transition border ${
-                  priority === 'high' 
-                    ? 'bg-red-600 border-red-600 text-white shadow-md' 
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                สูง
-              </button>
-              <button
-                type="button"
-                onClick={() => setPriority('medium')}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium transition border ${
-                  priority === 'medium' 
-                    ? 'bg-orange-500 border-orange-500 text-white shadow-md' 
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                ปานกลาง
-              </button>
-              <button
-                type="button"
-                onClick={() => setPriority('low')}
-                className={`flex-1 py-2 rounded-xl text-sm font-medium transition border ${
-                  priority === 'low' 
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                ต่ำ
-              </button>
+            <label className="block text-sm font-semibold text-slate-500 mb-1">ผู้บันทึกภารกิจ</label>
+            <div className="w-full px-4 py-2.5 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-sm font-medium mb-4">
+              {task?.createdBy || user?.displayName || 'ไม่ระบุ'}
             </div>
           </div>
 

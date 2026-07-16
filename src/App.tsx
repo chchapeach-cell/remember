@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { auth, db, googleProvider } from './firebase';
 import { signInWithPopup, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { User, Role } from './types';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { LogOut, Home, Calendar, PieChart, Bell, LayoutDashboard, Settings, AlertCircle } from 'lucide-react';
+import { LogOut, Home, Calendar, PieChart, Bell, LayoutDashboard, Settings, AlertCircle, GitCompare } from 'lucide-react';
 
 import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
 import Report from './components/Report';
+import Compare from './components/Compare';
 import RoleSelector from './components/RoleSelector';
 import SettingsPage from './components/SettingsPage';
 
@@ -167,6 +168,11 @@ function AppContent({
   // iOS Install Prompt State
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
 
+  // Real-time toast state for sound/visual fallbacks
+  const [toast, setToast] = useState<{ id: string; title: string; desc: string; visible: boolean } | null>(null);
+  const seenTaskIds = useRef<Set<string>>(new Set());
+  const initialLoadRef = useRef(true);
+
   useEffect(() => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const isStandalone = (window.navigator as any).standalone === true;
@@ -176,6 +182,64 @@ function AppContent({
       setShowIOSPrompt(true);
     }
   }, []);
+
+  useEffect(() => {
+    // Listen to tasks for real-time sound chiming fallback
+    const q = query(collection(db, 'tasks'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let isAnyChimed = false;
+      const currentTaskIds = new Set<string>();
+
+      snapshot.docs.forEach((docSnap) => {
+        const tId = docSnap.id;
+        const data = docSnap.data();
+        currentTaskIds.add(tId);
+
+        // If it's not the initial load, and we haven't seen this task ID before
+        if (!initialLoadRef.current && !seenTaskIds.current.has(tId)) {
+          // Verify it's not created by the current user to prevent self-chiming
+          const createdByMe = user && (
+            (user.displayName && data.createdBy === user.displayName) || 
+            (user.email && data.createdBy === user.email)
+          );
+          
+          // And was created recently (within the last 2 minutes) to avoid chiming on old offline records coming in
+          const isRecent = data.createdAt && (Date.now() - data.createdAt < 120000);
+
+          if (!createdByMe && isRecent && !isAnyChimed) {
+            isAnyChimed = true;
+            // Play notification audio
+            const audio = new Audio('/notification.wav');
+            audio.volume = 1.0;
+            audio.play().catch(err => {
+              console.warn("Audio autoplay blocked or failed:", err);
+            });
+
+            // Trigger beautiful top float toast
+            setToast({
+              id: tId,
+              title: data.title || 'มีภารกิจใหม่บันทึกเข้ามา',
+              desc: `บันทึกโดย: ${data.createdBy || 'เจ้าหน้าที่'}`,
+              visible: true
+            });
+            
+            // Auto dismiss toast after 6 seconds
+            setTimeout(() => {
+              setToast(prev => prev?.id === tId ? { ...prev, visible: false } : prev);
+            }, 6000);
+          }
+        }
+      });
+
+      // Populate our seen collection
+      seenTaskIds.current = currentTaskIds;
+      initialLoadRef.current = false;
+    }, (error) => {
+      console.error("Realtime listener error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-16 md:pb-0">
@@ -242,6 +306,19 @@ function AppContent({
             <Calendar className="w-5 h-5" />
             <span className="font-medium">ตารางงาน</span>
           </Link>
+          {user && user.role !== 'unassigned' && (
+            <Link 
+              to="/compare" 
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                currentPath === '/compare'
+                  ? 'bg-white/10 text-white font-semibold' 
+                  : 'text-indigo-300 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <GitCompare className="w-5 h-5" />
+              <span className="font-medium">เปรียบเทียบตาราง</span>
+            </Link>
+          )}
           {user && user.role !== 'general' && user.role !== 'unassigned' && (
             <>
               <Link 
@@ -308,6 +385,24 @@ function AppContent({
 
       {/* Main Content (with margin adjustments for mobile header and navigation bar) */}
       <main className="flex-1 overflow-x-hidden overflow-y-auto relative flex flex-col pt-20 md:pt-0">
+        {toast && toast.visible && (
+          <div className="fixed top-20 right-4 left-4 md:left-auto md:w-96 bg-indigo-950 text-white rounded-2xl p-4 shadow-xl border border-indigo-800 z-50 flex items-start gap-3.5 animate-in slide-in-from-top md:slide-in-from-right duration-300">
+            <div className="p-2 bg-indigo-900 rounded-xl text-amber-300 animate-pulse flex-shrink-0">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div className="flex-1 leading-snug">
+              <span className="font-black text-amber-300 text-[10px] uppercase tracking-wider block mb-0.5">การแจ้งเตือนเสียงเรียลไทม์</span>
+              <p className="font-extrabold text-sm text-white">{toast.title}</p>
+              <p className="text-xs text-indigo-200 mt-1">{toast.desc}</p>
+            </div>
+            <button 
+              onClick={() => setToast(prev => prev ? { ...prev, visible: false } : null)}
+              className="text-indigo-300 hover:text-white font-bold transition text-xs px-1"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {showIOSPrompt && (
           <div className="bg-amber-50 border-b border-amber-200 px-5 py-3.5 text-amber-900 text-xs sm:text-sm relative z-50 flex items-start gap-3 shadow-xs animate-in slide-in-from-top duration-300">
             <div className="p-1.5 bg-amber-100 rounded-xl text-amber-700 flex-shrink-0 flex items-center justify-center">
@@ -348,6 +443,7 @@ function AppContent({
             ) : (!user || user.role === 'general') ? (
               <>
                 <Route path="/" element={<TaskList user={user} />} />
+                <Route path="/compare" element={<Compare user={user} />} />
                 <Route path="/settings" element={<SettingsPage user={user} />} />
                 <Route path="/tasks" element={<Navigate to="/" />} />
                 <Route path="*" element={<Navigate to="/" />} />
@@ -356,6 +452,7 @@ function AppContent({
               <>
                 <Route path="/" element={<TaskList user={user} />} />
                 <Route path="/tasks" element={<Navigate to="/" />} />
+                <Route path="/compare" element={<Compare user={user} />} />
                 <Route path="/dashboard" element={<Dashboard user={user} />} />
                 <Route path="/report" element={<Report user={user} />} />
                 <Route path="/settings" element={<SettingsPage user={user} />} />
@@ -369,54 +466,65 @@ function AppContent({
 
       {/* Mobile Bottom Navigation (fixed at bottom of screen) */}
       {user && user.role !== 'unassigned' && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-2 z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-1 z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
           <Link 
             to="/" 
-            className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+            className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition ${
               currentPath === '/'
                 ? 'text-indigo-600 font-bold scale-105' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             <Calendar className="w-5 h-5" />
-            <span className="text-[10px] mt-1 font-medium">ตารางงาน</span>
+            <span className="text-[9px] mt-1 font-semibold">ตารางงาน</span>
+          </Link>
+          <Link 
+            to="/compare" 
+            className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition ${
+              currentPath === '/compare'
+                ? 'text-indigo-600 font-bold scale-105' 
+                : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <GitCompare className="w-5 h-5" />
+            <span className="text-[9px] mt-1 font-semibold">เปรียบเทียบ</span>
           </Link>
           {user.role !== 'general' && (
             <>
               <Link 
                 to="/dashboard" 
-                className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+                className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition ${
                   currentPath === '/dashboard' 
                     ? 'text-indigo-600 font-bold scale-105' 
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
                 <LayoutDashboard className="w-5 h-5" />
-                <span className="text-[10px] mt-1 font-medium">ภาพรวม</span>
+                <span className="text-[9px] mt-1 font-semibold">ภาพรวม</span>
               </Link>
               <Link 
                 to="/report" 
-                className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+                className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition ${
                   currentPath === '/report' 
                     ? 'text-indigo-600 font-bold scale-105' 
                     : 'text-slate-400 hover:text-slate-600'
                 }`}
               >
                 <PieChart className="w-5 h-5" />
-                <span className="text-[10px] mt-1 font-medium">รายงาน</span>
+                <span className="text-[9px] mt-1 font-semibold">รายงาน</span>
               </Link>
             </>
           )}
           <Link 
             to="/settings" 
-            className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+            className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition ${
               currentPath === '/settings' 
                 ? 'text-indigo-600 font-bold scale-105' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
             <Settings className="w-5 h-5" />
-            <span className="text-[10px] mt-1 font-medium">ตั้งค่า</span>
+            <span className="text-[9px] mt-1 font-semibold">ตั้งค่า</span>
           </Link>
         </nav>
       )}

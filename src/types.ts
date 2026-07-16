@@ -18,7 +18,7 @@ export interface Task {
   time?: string; // HH:mm
   assignee?: string;
   assignees?: string[];
-  priority: Priority;
+  priority?: Priority;
   status: 'pending' | 'in_progress' | 'completed';
   createdBy: string;
   createdAt: number;

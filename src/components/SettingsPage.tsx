@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Role } from '../types';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Settings, Save, CheckCircle2, UserPlus, Trash2, Shield, Users, Mail, AlertTriangle, Bell, Info } from 'lucide-react';
 import axios from 'axios';
@@ -299,11 +299,11 @@ export default function SettingsPage({ user }: { user: User | null }) {
           </div>
           
           <div className="p-6 space-y-6">
-            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between">
+            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <div>
-                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
                   <Bell className="w-5 h-5 text-indigo-500" />
-                  สถานะการแจ้งเตือน
+                  เปิดสิทธิ์แจ้งเตือนระบบ (Push Notifications)
                 </h3>
                 <p className="text-sm text-slate-500 mt-1">
                   {loadingPush ? 'กำลังตรวจสอบ...' : pushEnabled ? 'อุปกรณ์นี้เปิดรับการแจ้งเตือนแล้ว' : 'คุณยังไม่ได้เปิดการแจ้งเตือนบนอุปกรณ์นี้'}
@@ -313,7 +313,7 @@ export default function SettingsPage({ user }: { user: User | null }) {
               <button
                 onClick={handleEnablePush}
                 disabled={savingPush || pushEnabled || loadingPush}
-                className={`px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition shadow-sm ${
+                className={`px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition shadow-sm ${
                   pushEnabled 
                     ? 'bg-green-100 text-green-700 cursor-default' 
                     : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 disabled:opacity-50'
@@ -322,6 +322,58 @@ export default function SettingsPage({ user }: { user: User | null }) {
                 {pushEnabled ? <CheckCircle2 className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
                 {savingPush ? 'กำลังเปิดใช้งาน...' : pushEnabled ? 'เปิดใช้งานแล้ว' : 'เปิดการแจ้งเตือน'}
               </button>
+            </div>
+
+            {/* Diagnostics and audio tester tools */}
+            <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/60 space-y-4">
+              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                <Bell className="w-4 h-4 text-indigo-500" />
+                เครื่องมือทดสอบระบบและเสียงแจ้งเตือน
+              </h3>
+              <p className="text-xs text-slate-500">
+                หากระบบแจ้งเตือนไม่ทำงาน หรือเสียงบน iPhone ไม่ดัง ให้ทดสอบผ่านเครื่องมือด้านล่างนี้ได้โดยตรง:
+              </p>
+              
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => {
+                    const audio = new Audio('/notification.wav');
+                    audio.volume = 1.0;
+                    audio.play()
+                      .then(() => {
+                        alert('🔔 เล่นเสียงสำเร็จ! ลำโพงและเบราว์เซอร์ของคุณพร้อมใช้งานสำหรับเสียงแจ้งเตือนแล้ว');
+                      })
+                      .catch(err => {
+                        console.error("Audio play error:", err);
+                        alert('❌ เล่นเสียงล้มเหลว: กรุณาคลิกสัมผัสหน้าจอเบราว์เซอร์นี้อย่างน้อย 1 ครั้ง เพื่อให้สิทธิ์เล่นเสียงมีผล');
+                      });
+                  }}
+                  className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition"
+                >
+                  🔊 ทดสอบระบบเสียง (Play Sound Test)
+                </button>
+
+                <button
+                  onClick={async () => {
+                    try {
+                      const idToken = await auth.currentUser?.getIdToken();
+                      const headers = idToken ? { Authorization: `Bearer ${idToken}` } : {};
+                      await axios.post('/api/notify', {
+                        title: '🔔 ทดสอบแจ้งเตือนจากหน้าตั้งค่า',
+                        body: 'การแจ้งเตือนบนระบบของคุณและอุปกรณ์เชื่อมต่อทำงานเสร็จสมบูรณ์แล้ว!',
+                        url: window.location.origin
+                      }, { headers });
+                      alert('✅ ส่งสัญญาณแจ้งเตือนเรียบร้อยแล้ว! สัญญาณส่งออกหาผู้ใช้ทุกคนที่ลงทะเบียนในฐานข้อมูล');
+                    } catch (error) {
+                      console.error("Test push error:", error);
+                      alert('❌ ส่งแจ้งเตือนล้มเหลว: ' + (error as any).message);
+                    }
+                  }}
+                  className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition"
+                >
+                  💬 ส่งแจ้งเตือนจำลอง (Send Test Push)
+                </button>
+              </div>
             </div>
 
             {pushSuccess && (

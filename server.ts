@@ -40,10 +40,12 @@ async function startServer() {
   // Web Push Notification API
   app.post("/api/notify", async (req, res) => {
     try {
-      const { message, targetUserId } = req.body;
+      const { message, title, body, targetUserId } = req.body;
+      const displayTitle = title || "ภารกิจผู้บริหาร";
+      const displayBody = message || body;
       
-      if (!message) {
-        return res.status(400).json({ error: "Message is required" });
+      if (!displayBody) {
+        return res.status(400).json({ error: "Message or body is required" });
       }
 
       if (!firebaseConfig.projectId || !firebaseConfig.firestoreDatabaseId) {
@@ -53,7 +55,15 @@ async function startServer() {
       // Fetch users from Firestore
       let users = [];
       try {
-        const firestoreRes = await axios.get(`https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents/users`);
+        const apiKeyParam = firebaseConfig.apiKey ? `?key=${firebaseConfig.apiKey}` : "";
+        const headers: Record<string, string> = {};
+        if (req.headers.authorization) {
+          headers["Authorization"] = req.headers.authorization;
+        }
+        const firestoreRes = await axios.get(
+          `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents/users${apiKeyParam}`,
+          { headers }
+        );
         if (firestoreRes.data && firestoreRes.data.documents) {
           users = firestoreRes.data.documents;
         }
@@ -62,8 +72,8 @@ async function startServer() {
       }
 
       const payload = JSON.stringify({
-        title: "ภารกิจผู้บริหาร",
-        body: message,
+        title: displayTitle,
+        body: displayBody,
         icon: "https://krustation.com/wp-content/uploads/2026/03/logo-obec-1.jpg"
       });
 

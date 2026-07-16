@@ -6,6 +6,7 @@ import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInte
 import { th } from 'date-fns/locale';
 import { Plus, Edit2, Trash2, CheckCircle2, Clock, AlertCircle, ChevronLeft, ChevronRight, LayoutList, Calendar as CalendarIcon, Paperclip } from 'lucide-react';
 import TaskForm from './TaskForm';
+import { getStaffTheme } from '../utils/staffColors';
 
 export default function TaskList({ user }: { user: User | null }) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -256,30 +257,29 @@ export default function TaskList({ user }: { user: User | null }) {
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition shadow-sm flex-1 sm:flex-none"
             >
               <Plus className="w-4 h-4" />
-              เพิ่มภารกิจใหม่
+              เพิ่มงาน
             </button>
           )}
         </div>
       </header>
 
       {viewMode === 'list' ? (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {filteredTasks.length === 0 ? (
-            <div className="bg-white rounded-3xl p-12 text-center text-slate-500 border border-slate-200 shadow-sm flex flex-col items-center justify-center gap-3">
-              <AlertCircle className="w-10 h-10 text-slate-300" />
-              <div>
-                <p className="font-semibold text-slate-700 text-base">ไม่มีข้อมูลภารกิจ</p>
-                <p className="text-sm text-slate-400 mt-1">กรุณาเลือกผู้รับผิดชอบอื่นหรือเพิ่มภารกิจใหม่</p>
-              </div>
+            <div className="h-64 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-slate-200 rounded-3xl bg-white">
+              <Clock className="w-10 h-10 text-slate-300 mb-2" />
+              <p className="text-sm text-slate-400 font-semibold">ไม่มีภารกิจในระบบ</p>
             </div>
           ) : (
             <>
-              {/* 1. Upcoming Tasks */}
-              {upcomingTasks.length > 0 && (
+              {/* Unified Active Tasks (Today & Upcoming) */}
+              {(todayTasks.length > 0 || upcomingTasks.length > 0) && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 px-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                    <h2 className="text-lg font-bold text-slate-800">ภารกิจเร็วๆ นี้ ({upcomingTasks.length})</h2>
+                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse" />
+                    <h2 className="text-lg font-bold text-slate-800">
+                      ภารกิจวันนี้และเร็วๆ นี้ ({todayTasks.length + upcomingTasks.length})
+                    </h2>
                   </div>
                   
                   {/* Desktop Table */}
@@ -291,12 +291,12 @@ export default function TaskList({ user }: { user: User | null }) {
                             <th className="pb-3 font-medium">ชื่องาน</th>
                             <th className="pb-3 font-medium">วันที่ / เวลา</th>
                             <th className="pb-3 font-medium">ผู้รับผิดชอบ</th>
-                            <th className="pb-3 font-medium text-center">ความสำคัญ</th>
+                            <th className="pb-3 font-medium">ผู้บันทึก</th>
                             {canEdit && <th className="pb-3 font-medium text-right">จัดการ</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                          {upcomingTasks.map(task => (
+                          {[...todayTasks, ...upcomingTasks].map(task => (
                             <tr key={task.id} className="hover:bg-slate-50/80 transition border-l-4 border-l-transparent">
                               <td className="p-4">
                                 <p className="font-bold text-slate-900 flex items-center gap-2">
@@ -319,160 +319,36 @@ export default function TaskList({ user }: { user: User | null }) {
                               <td className="p-4 whitespace-nowrap">
                                 <div className="space-y-1">
                                   {dateBadge(task.date)}
-                                  {task.time && <div className="text-xs text-slate-400 flex items-center gap-1 font-medium"><Clock className="w-3 h-3 text-slate-400" /> {task.time} น.</div>}
+                                  {task.time && <div className="text-xs text-slate-400 flex items-center gap-1 font-semibold"><Clock className="w-3 h-3 text-slate-400" /> {task.time} น.</div>}
                                 </div>
                               </td>
-                              <td className="p-4 text-sm text-slate-600">
-                                {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : <span className="text-slate-400">-</span>)}
-                              </td>
-                              <td className="p-4 whitespace-nowrap text-center">
-                                {priorityBadge(task.priority)}
-                              </td>
-                              {canEdit && (
-                                <td className="p-4 whitespace-nowrap text-right space-x-2">
-                                  <button
-                                    onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
-                                    className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                                  >
-                                    <Edit2 className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(task.id)}
-                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </td>
-                              )}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Mobile Cards */}
-                  <div className="block md:hidden space-y-3">
-                    {upcomingTasks.map(task => (
-                      <div 
-                        key={task.id} 
-                        className={`bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3 border-l-4 ${
-                          task.priority === 'high' ? 'border-l-red-500' : task.priority === 'medium' ? 'border-l-orange-500' : 'border-l-blue-500'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="space-y-1">
-                            <h3 className="font-bold text-slate-900 flex items-center flex-wrap gap-1.5 text-base leading-snug">
-                              {task.title}
-                              {task.attachmentUrl && (
-                                <a
-                                  href={task.attachmentUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-indigo-600 hover:text-indigo-800 p-1 bg-indigo-50 rounded-lg transition"
-                                  title="ดูเอกสารแนบ"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Paperclip className="w-3.5 h-3.5" />
-                                </a>
-                              )}
-                            </h3>
-                            {task.description && (
-                              <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{task.description}</p>
-                            )}
-                          </div>
-                          {canEdit && (
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
-                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(task.id)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          {dateBadge(task.date)}
-                          {task.time && (
-                            <div className="text-[10px] text-slate-600 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1 font-bold">
-                              <Clock className="w-3 h-3 text-slate-400" />
-                              {task.time} น.
-                            </div>
-                          )}
-                          {priorityBadge(task.priority)}
-                        </div>
-                        <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                          <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">ผู้รับผิดชอบ</span>
-                          <p className="font-medium text-slate-700 truncate">
-                            {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : '-')}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 2. Today's Tasks */}
-              {todayTasks.length > 0 && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 px-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse" />
-                    <h2 className="text-lg font-bold text-slate-800">ภารกิจวันนี้ ({todayTasks.length})</h2>
-                  </div>
-                  
-                  {/* Desktop Table */}
-                  <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden p-6">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="text-slate-400 text-left border-b border-slate-100">
-                          <tr>
-                            <th className="pb-3 font-medium">ชื่องาน</th>
-                            <th className="pb-3 font-medium">เวลา</th>
-                            <th className="pb-3 font-medium">ผู้รับผิดชอบ</th>
-                            <th className="pb-3 font-medium text-center">ความสำคัญ</th>
-                            {canEdit && <th className="pb-3 font-medium text-right">จัดการ</th>}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {todayTasks.map(task => (
-                            <tr key={task.id} className="hover:bg-slate-50/80 transition border-l-4 border-l-transparent">
-                              <td className="p-4">
-                                <p className="font-bold text-slate-900 flex items-center gap-2">
-                                  {task.title}
-                                  {task.attachmentUrl && (
-                                    <a
-                                      href={task.attachmentUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-indigo-600 hover:text-indigo-800"
-                                      title="ดูเอกสารแนบ"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Paperclip className="w-4 h-4" />
-                                    </a>
+                              <td className="p-4 text-sm font-medium">
+                                <div className="flex flex-wrap gap-1">
+                                  {task.assignees && task.assignees.length > 0 ? (
+                                    task.assignees.map(name => {
+                                      const t = getStaffTheme(name);
+                                      return (
+                                        <span key={name} className={`px-2 py-0.5 rounded-md text-xs font-bold border ${t.badge}`}>
+                                          {name}
+                                        </span>
+                                      );
+                                    })
+                                  ) : task.assignee ? (
+                                    (() => {
+                                      const t = getStaffTheme(task.assignee);
+                                      return (
+                                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${t.badge}`}>
+                                          {task.assignee}
+                                        </span>
+                                      );
+                                    })()
+                                  ) : (
+                                    <span className="text-slate-400">-</span>
                                   )}
-                                </p>
-                                <p className="text-sm text-slate-500 line-clamp-1">{task.description}</p>
-                              </td>
-                              <td className="p-4 whitespace-nowrap">
-                                <div className="text-xs text-slate-600 font-bold flex items-center gap-1">
-                                  <Clock className="w-3.5 h-3.5 text-indigo-500" /> 
-                                  {task.time ? `${task.time} น.` : 'ไม่ระบุเวลา'}
                                 </div>
                               </td>
-                              <td className="p-4 text-sm text-slate-600">
-                                {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : <span className="text-slate-400">-</span>)}
-                              </td>
-                              <td className="p-4 whitespace-nowrap text-center">
-                                {priorityBadge(task.priority)}
+                              <td className="p-4 text-sm text-slate-500">
+                                {task.createdBy || 'ไม่ระบุ'}
                               </td>
                               {canEdit && (
                                 <td className="p-4 whitespace-nowrap text-right space-x-2">
@@ -499,66 +375,98 @@ export default function TaskList({ user }: { user: User | null }) {
 
                   {/* Mobile Cards */}
                   <div className="block md:hidden space-y-3">
-                    {todayTasks.map(task => (
-                      <div 
-                        key={task.id} 
-                        className={`bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3 border-l-4 ${
-                          task.priority === 'high' ? 'border-l-red-500' : task.priority === 'medium' ? 'border-l-orange-500' : 'border-l-blue-500'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="space-y-1">
-                            <h3 className="font-bold text-slate-900 flex items-center flex-wrap gap-1.5 text-base leading-snug">
-                              {task.title}
-                              {task.attachmentUrl && (
-                                <a
-                                  href={task.attachmentUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-indigo-600 hover:text-indigo-800 p-1 bg-indigo-50 rounded-lg transition"
-                                  title="ดูเอกสารแนบ"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Paperclip className="w-3.5 h-3.5" />
-                                </a>
+                    {[...todayTasks, ...upcomingTasks].map(task => {
+                      const primaryAssignee = task.assignees?.[0] || task.assignee;
+                      const theme = getStaffTheme(primaryAssignee);
+                      return (
+                        <div 
+                          key={task.id} 
+                          className={`bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3 border-l-4 ${theme.borderLeft}`}
+                        >
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="space-y-1">
+                              <h3 className="font-bold text-slate-900 flex items-center flex-wrap gap-1.5 text-base leading-snug">
+                                {task.title}
+                                {task.attachmentUrl && (
+                                  <a
+                                    href={task.attachmentUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-indigo-600 hover:text-indigo-800 p-1 bg-indigo-50 rounded-lg transition"
+                                    title="ดูเอกสารแนบ"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Paperclip className="w-3.5 h-3.5" />
+                                  </a>
+                                )}
+                              </h3>
+                              {task.description && (
+                                <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{task.description}</p>
                               )}
-                            </h3>
-                            {task.description && (
-                              <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed">{task.description}</p>
+                            </div>
+                            {canEdit && (
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(task.id)}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             )}
                           </div>
-                          {canEdit && (
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
-                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(task.id)}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          <div className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100/60 px-2 py-1 rounded-lg flex items-center gap-1 font-bold">
-                            <Clock className="w-3 h-3" />
-                            {task.time ? `${task.time} น.` : 'ไม่ระบุเวลา'}
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            {dateBadge(task.date)}
+                            {task.time && (
+                              <div className="text-[10px] text-slate-600 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1 font-bold">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                {task.time} น.
+                              </div>
+                            )}
                           </div>
-                          {priorityBadge(task.priority)}
+                          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            <div>
+                              <span className="font-semibold text-slate-400 block text-[9px] uppercase tracking-wider mb-0.5">ผู้รับผิดชอบ</span>
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {task.assignees && task.assignees.length > 0 ? (
+                                  task.assignees.map(name => {
+                                    const t = getStaffTheme(name);
+                                    return (
+                                      <span key={name} className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${t.badge}`}>
+                                        {name}
+                                      </span>
+                                    );
+                                  })
+                                ) : task.assignee ? (
+                                  (() => {
+                                    const t = getStaffTheme(task.assignee);
+                                    return (
+                                      <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${t.badge}`}>
+                                        {task.assignee}
+                                      </span>
+                                    );
+                                  })()
+                                ) : (
+                                  <span className="text-slate-400">-</span>
+                                )}
+                              </div>
+                            </div>
+                            <div>
+                              <span className="font-semibold text-slate-400 block text-[9px] uppercase tracking-wider mb-0.5">ผู้บันทึก</span>
+                              <p className="font-medium text-slate-700 truncate">
+                                {task.createdBy || '-'}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-[11px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                          <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">ผู้รับผิดชอบ</span>
-                          <p className="font-medium text-slate-700 truncate">
-                            {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : '-')}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -621,8 +529,30 @@ export default function TaskList({ user }: { user: User | null }) {
                                       {task.time && <div className="text-xs text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {task.time} น.</div>}
                                     </div>
                                   </td>
-                                  <td className="p-4 text-sm text-slate-600">
-                                    {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : <span className="text-slate-400">-</span>)}
+                                  <td className="p-4 text-sm font-medium">
+                                    <div className="flex flex-wrap gap-1">
+                                      {task.assignees && task.assignees.length > 0 ? (
+                                        task.assignees.map(name => {
+                                          const t = getStaffTheme(name);
+                                          return (
+                                            <span key={name} className={`px-2 py-0.5 rounded-md text-xs font-bold border ${t.badge}`}>
+                                              {name}
+                                            </span>
+                                          );
+                                        })
+                                      ) : task.assignee ? (
+                                        (() => {
+                                          const t = getStaffTheme(task.assignee);
+                                          return (
+                                            <span className={`px-2 py-0.5 rounded-md text-xs font-bold border ${t.badge}`}>
+                                              {task.assignee}
+                                            </span>
+                                          );
+                                        })()
+                                      ) : (
+                                        <span className="text-slate-400">-</span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="p-4 whitespace-nowrap text-center">
                                     {priorityBadge(task.priority)}
@@ -652,69 +582,91 @@ export default function TaskList({ user }: { user: User | null }) {
 
                       {/* Mobile Cards */}
                       <div className="block md:hidden space-y-3 opacity-80">
-                        {pastTasks.map(task => (
-                          <div 
-                            key={task.id} 
-                            className={`bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3 border-l-4 ${
-                              task.priority === 'high' ? 'border-l-red-400' : task.priority === 'medium' ? 'border-l-orange-400' : 'border-l-blue-400'
-                            }`}
-                          >
-                            <div className="flex justify-between items-start gap-4">
-                              <div className="space-y-1">
-                                <h3 className="font-semibold text-slate-800 flex items-center flex-wrap gap-1.5 text-base leading-snug">
-                                  {task.title}
-                                  {task.attachmentUrl && (
-                                    <a
-                                      href={task.attachmentUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-indigo-600 hover:text-indigo-800 p-1 bg-indigo-50 rounded-lg transition"
-                                      title="ดูเอกสารแนบ"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Paperclip className="w-3.5 h-3.5" />
-                                    </a>
+                        {pastTasks.map(task => {
+                          const primaryAssignee = task.assignees?.[0] || task.assignee;
+                          const theme = getStaffTheme(primaryAssignee);
+                          return (
+                            <div 
+                              key={task.id} 
+                              className={`bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-3 border-l-4 ${theme.borderLeft}`}
+                            >
+                              <div className="flex justify-between items-start gap-4">
+                                <div className="space-y-1">
+                                  <h3 className="font-semibold text-slate-800 flex items-center flex-wrap gap-1.5 text-base leading-snug">
+                                    {task.title}
+                                    {task.attachmentUrl && (
+                                      <a
+                                        href={task.attachmentUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-indigo-600 hover:text-indigo-800 p-1 bg-indigo-50 rounded-lg transition"
+                                        title="ดูเอกสารแนบ"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Paperclip className="w-3.5 h-3.5" />
+                                      </a>
+                                    )}
+                                  </h3>
+                                  {task.description && (
+                                    <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">{task.description}</p>
                                   )}
-                                </h3>
-                                {task.description && (
-                                  <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed">{task.description}</p>
+                                </div>
+                                {canEdit && (
+                                  <div className="flex items-center gap-0.5">
+                                    <button
+                                      onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
+                                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(task.id)}
+                                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
-                              {canEdit && (
-                                <div className="flex items-center gap-0.5">
-                                  <button
-                                    onClick={() => { setEditingTask(task); setIsFormOpen(true); }}
-                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(task.id)}
-                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {dateBadge(task.date)}
+                                {task.time && (
+                                  <div className="text-[10px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1 font-semibold">
+                                    <Clock className="w-3 h-3 text-slate-400" />
+                                    {task.time} น.
+                                  </div>
+                                )}
+                                {priorityBadge(task.priority)}
+                              </div>
+                              <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">ผู้รับผิดชอบ</span>
+                                <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {task.assignees && task.assignees.length > 0 ? (
+                                    task.assignees.map(name => {
+                                      const t = getStaffTheme(name);
+                                      return (
+                                        <span key={name} className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${t.badge}`}>
+                                          {name}
+                                        </span>
+                                      );
+                                    })
+                                  ) : task.assignee ? (
+                                    (() => {
+                                      const t = getStaffTheme(task.assignee);
+                                      return (
+                                        <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold border ${t.badge}`}>
+                                          {task.assignee}
+                                        </span>
+                                      );
+                                    })()
+                                  ) : (
+                                    <span className="text-slate-400">-</span>
+                                  )}
                                 </div>
-                              )}
+                              </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                              {dateBadge(task.date)}
-                              {task.time && (
-                                <div className="text-[10px] text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100 flex items-center gap-1 font-semibold">
-                                  <Clock className="w-3 h-3 text-slate-400" />
-                                  {task.time} น.
-                                </div>
-                              )}
-                              {priorityBadge(task.priority)}
-                            </div>
-                            <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                              <span className="font-semibold text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">ผู้รับผิดชอบ</span>
-                              <p className="font-medium text-slate-600 truncate">
-                                {task.assignees?.length ? task.assignees.join(', ') : (task.assignee ? task.assignee : '-')}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -788,29 +740,33 @@ export default function TaskList({ user }: { user: User | null }) {
                       )}
                     </div>
                     <div className="flex-1 overflow-y-auto space-y-1 sm:space-y-1.5 scrollbar-hide">
-                      {dayTasks.map(task => (
-                        <div
-                          key={task.id}
-                          onClick={() => { if (canEdit) { setEditingTask(task); setIsFormOpen(true); } }}
-                          className={`text-[10px] sm:text-xs px-1 sm:px-2 py-1 sm:py-1.5 rounded sm:rounded-lg cursor-pointer transition border flex flex-col gap-0.5 relative group ${
-                            task.priority === 'high'
-                              ? 'bg-red-50 text-red-700 border-red-100 hover:bg-red-100'
-                              : task.priority === 'medium'
-                              ? 'bg-orange-50 text-orange-700 border-orange-100 hover:bg-orange-100'
-                              : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100'
-                          }`}
-                          title={task.title}
-                        >
-                          <span className="font-semibold truncate leading-tight sm:leading-normal pr-4">{task.title}</span>
-                          {task.attachmentUrl && (
-                            <div className="absolute top-1 right-1 opacity-60">
-                              <Paperclip className="w-2.5 h-2.5" />
-                            </div>
-                          )}
-                          {task.time && <span className="text-[8px] sm:text-[10px] opacity-75 flex items-center gap-0.5"><Clock className="w-2 sm:w-2.5 h-2 sm:h-2.5" /> {task.time}</span>}
-                          {(task.assignees?.length || task.assignee) && <span className="text-[8px] sm:text-[10px] opacity-75 mt-0.5 border-t pt-0.5 border-black/10 truncate">{task.assignees?.length ? task.assignees.join(', ') : task.assignee}</span>}
-                        </div>
-                      ))}
+                      {dayTasks.map(task => {
+                        const primaryAssignee = task.assignees?.[0] || task.assignee;
+                        const theme = getStaffTheme(primaryAssignee);
+                        return (
+                          <div
+                            key={task.id}
+                            onClick={() => { if (canEdit) { setEditingTask(task); setIsFormOpen(true); } }}
+                            className={`text-[10px] sm:text-xs px-1 sm:px-2 py-1 sm:py-1.5 rounded sm:rounded-lg cursor-pointer transition border border-l-4 ${theme.borderLeft} flex flex-col gap-0.5 relative group ${
+                              task.priority === 'high'
+                                ? 'bg-red-50 text-red-700 border-red-100 hover:bg-red-100'
+                                : task.priority === 'medium'
+                                ? 'bg-orange-50 text-orange-700 border-orange-100 hover:bg-orange-100'
+                                : 'bg-slate-50 text-slate-700 border-slate-200/60 hover:bg-slate-100'
+                            }`}
+                            title={task.title}
+                          >
+                            <span className="font-semibold truncate leading-tight sm:leading-normal pr-4">{task.title}</span>
+                            {task.attachmentUrl && (
+                              <div className="absolute top-1 right-1 opacity-60">
+                                <Paperclip className="w-2.5 h-2.5" />
+                              </div>
+                            )}
+                            {task.time && <span className="text-[8px] sm:text-[10px] opacity-75 flex items-center gap-0.5"><Clock className="w-2 sm:w-2.5 h-2 sm:h-2.5" /> {task.time}</span>}
+                            {(task.assignees?.length || task.assignee) && <span className="text-[8px] sm:text-[10px] opacity-75 mt-0.5 border-t pt-0.5 border-black/10 truncate">{task.assignees?.length ? task.assignees.join(', ') : task.assignee}</span>}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 );
