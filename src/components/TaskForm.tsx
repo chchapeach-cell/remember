@@ -258,7 +258,7 @@ export default function TaskForm({ task, user, onClose, onDelete }: { task: Task
               </div>
               <div className="flex items-center gap-1.5 text-sm text-slate-700 group-hover:text-slate-900 transition">
                 <Send className="w-4 h-4 text-green-500" />
-                ส่งการแจ้งเตือนไปยัง LINE OA ของสำนักงานเขต
+                ส่งแจ้งเตือนไปยังผู้ใช้งานทั้งหมด
               </div>
             </label>
           </div>

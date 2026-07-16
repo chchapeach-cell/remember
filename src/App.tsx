@@ -328,7 +328,7 @@ function AppContent({
       </main>
 
       {/* Mobile Bottom Navigation (fixed at bottom of screen) */}
-      {user && user.role !== 'general' && user.role !== 'unassigned' && (
+      {user && user.role !== 'unassigned' && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-2 z-40 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
           <Link 
             to="/" 
@@ -341,28 +341,32 @@ function AppContent({
             <Calendar className="w-5 h-5" />
             <span className="text-[10px] mt-1 font-medium">ตารางงาน</span>
           </Link>
-          <Link 
-            to="/dashboard" 
-            className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
-              currentPath === '/dashboard' 
-                ? 'text-indigo-600 font-bold scale-105' 
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="text-[10px] mt-1 font-medium">ภาพรวม</span>
-          </Link>
-          <Link 
-            to="/report" 
-            className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
-              currentPath === '/report' 
-                ? 'text-indigo-600 font-bold scale-105' 
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <PieChart className="w-5 h-5" />
-            <span className="text-[10px] mt-1 font-medium">รายงาน</span>
-          </Link>
+          {user.role !== 'general' && (
+            <>
+              <Link 
+                to="/dashboard" 
+                className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+                  currentPath === '/dashboard' 
+                    ? 'text-indigo-600 font-bold scale-105' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                <span className="text-[10px] mt-1 font-medium">ภาพรวม</span>
+              </Link>
+              <Link 
+                to="/report" 
+                className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${
+                  currentPath === '/report' 
+                    ? 'text-indigo-600 font-bold scale-105' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                <PieChart className="w-5 h-5" />
+                <span className="text-[10px] mt-1 font-medium">รายงาน</span>
+              </Link>
+            </>
+          )}
           <Link 
             to="/settings" 
             className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition ${

@@ -120,9 +120,9 @@ export default function SettingsPage({ user }: { user: User | null }) {
         return;
       }
       
-      // Get VAPID public key from backend
-      const vapidRes = await axios.get('/api/vapidPublicKey');
-      const applicationServerKey = urlBase64ToUint8Array(vapidRes.data);
+      // Static VAPID public key for the applet
+      const VAPID_PUBLIC_KEY = 'BI34U_bCSxQ6M8lxrlutHEzb26YuO-mI-bkT5d_CpCeUFW7AbA2mSfAW_QwETVl46bpnbgEMm1XvSwJYFi5ONwE';
+      const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
       
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.subscribe({
