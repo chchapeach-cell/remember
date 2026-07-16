@@ -61,7 +61,8 @@ export default function TaskForm({ task, user, onClose, onDelete }: { task: Task
       // Send LINE notification via our backend API
       if (notifyLine) {
         const actionText = task ? 'อัปเดตภารกิจ' : 'เพิ่มภารกิจใหม่';
-        const message = `🔔 ${actionText}\nหัวข้อ: ${title}\nวันที่: ${date}\nสถานะ: รอดำเนินการ\n\nโปรดตรวจสอบรายละเอียดในระบบ`;
+        const assigneeNames = assignees.length > 0 ? assignees.join(', ') : 'ไม่ได้ระบุ';
+        const message = `🔔 ${actionText}\nงานที่ต้องไปด้วย: ${title}\nผู้รับผิดชอบ: ${assigneeNames}\nวันที่: ${date}${time ? ` เวลา: ${time} น.` : ''}\nสถานะ: รอดำเนินการ\n\nโปรดตรวจสอบรายละเอียดในระบบ`;
         
         try {
           const idToken = await auth.currentUser?.getIdToken();
