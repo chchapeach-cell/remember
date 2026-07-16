@@ -4,6 +4,7 @@ import { db, auth } from '../firebase';
 import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Settings, Save, CheckCircle2, UserPlus, Trash2, Shield, Users, Mail, AlertTriangle, Bell, Info } from 'lucide-react';
 import axios from 'axios';
+import { playNotificationSound } from '../utils/audio';
 
 export default function SettingsPage({ user }: { user: User | null }) {
   const [activeTab, setActiveTab] = useState<'notifications' | 'users'>('notifications');
@@ -337,16 +338,13 @@ export default function SettingsPage({ user }: { user: User | null }) {
               <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => {
-                    const audio = new Audio('/notification.wav');
-                    audio.volume = 1.0;
-                    audio.play()
-                      .then(() => {
-                        alert('🔔 เล่นเสียงสำเร็จ! ลำโพงและเบราว์เซอร์ของคุณพร้อมใช้งานสำหรับเสียงแจ้งเตือนแล้ว');
-                      })
-                      .catch(err => {
-                        console.error("Audio play error:", err);
-                        alert('❌ เล่นเสียงล้มเหลว: กรุณาคลิกสัมผัสหน้าจอเบราว์เซอร์นี้อย่างน้อย 1 ครั้ง เพื่อให้สิทธิ์เล่นเสียงมีผล');
-                      });
+                    try {
+                      playNotificationSound();
+                      alert('🔔 เล่นเสียงแจ้งเตือนความดังสูงสำเร็จ! ลำโพงและเบราว์เซอร์ของคุณพร้อมใช้งานสำหรับเสียงแจ้งเตือนแล้ว');
+                    } catch (err) {
+                      console.error("Audio play error:", err);
+                      alert('❌ เล่นเสียงล้มเหลว: กรุณาคลิกสัมผัสหน้าจอเบราว์เซอร์นี้อย่างน้อย 1 ครั้ง เพื่อให้สิทธิ์เล่นเสียงมีผล');
+                    }
                   }}
                   className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition"
                 >

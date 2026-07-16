@@ -12,6 +12,7 @@ import Report from './components/Report';
 import Compare from './components/Compare';
 import RoleSelector from './components/RoleSelector';
 import SettingsPage from './components/SettingsPage';
+import { playNotificationSound } from './utils/audio';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -209,11 +210,7 @@ function AppContent({
           if (!createdByMe && isRecent && !isAnyChimed) {
             isAnyChimed = true;
             // Play notification audio
-            const audio = new Audio('/notification.wav');
-            audio.volume = 1.0;
-            audio.play().catch(err => {
-              console.warn("Audio autoplay blocked or failed:", err);
-            });
+            playNotificationSound();
 
             // Trigger beautiful top float toast
             setToast({
