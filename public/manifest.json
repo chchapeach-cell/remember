@@ -1,0 +1,18 @@
+{
+  "name": "ภารกิจผู้บริหาร สพป.แม่ฮ่องสอน เขต 1",
+  "short_name": "ภารกิจผู้บริหาร",
+  "description": "ระบบติดตามและแจ้งเตือนภารกิจผู้บริหาร สพป.แม่ฮ่องสอน เขต 1",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

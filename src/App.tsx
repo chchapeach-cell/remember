@@ -17,6 +17,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
 
+  // Register Service Worker globally on mount
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('Service Worker registered globally:', reg.scope))
+        .catch(err => console.error('Global Service Worker registration failed:', err));
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -155,6 +164,19 @@ function AppContent({
   const location = useLocation();
   const currentPath = location.pathname;
 
+  // iOS Install Prompt State
+  const [showIOSPrompt, setShowIOSPrompt] = useState(false);
+
+  useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isStandalone = (window.navigator as any).standalone === true;
+    
+    // Show prompt only if on iOS and not yet installed on home screen
+    if (isIOS && !isStandalone) {
+      setShowIOSPrompt(true);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row pb-16 md:pb-0">
       {/* Mobile Top Header */}
@@ -286,6 +308,24 @@ function AppContent({
 
       {/* Main Content (with margin adjustments for mobile header and navigation bar) */}
       <main className="flex-1 overflow-x-hidden overflow-y-auto relative flex flex-col pt-20 md:pt-0">
+        {showIOSPrompt && (
+          <div className="bg-amber-50 border-b border-amber-200 px-5 py-3.5 text-amber-900 text-xs sm:text-sm relative z-50 flex items-start gap-3 shadow-xs animate-in slide-in-from-top duration-300">
+            <div className="p-1.5 bg-amber-100 rounded-xl text-amber-700 flex-shrink-0 flex items-center justify-center">
+              <Bell className="w-4 h-4 animate-bounce" />
+            </div>
+            <div className="flex-1 pr-6 leading-relaxed">
+              <span className="font-extrabold text-amber-950 block mb-0.5 text-sm">แจ้งเตือนเสียงบน iPhone ไม่ทำงาน?</span>
+              ต้องการแจ้งเตือนแบบมีเสียงบน iPhone? กรุณาติดตั้งแอปลงบนหน้าจอโฮมก่อน: กดปุ่ม <span className="font-extrabold text-amber-950 underline">แชร์ (Share)</span> ที่แถบล่างสุดของเบราว์เซอร์ Safari แล้วเลือก <span className="font-extrabold text-amber-950 underline">"เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"</span> จากนั้นค่อยเปิดสิทธิ์แจ้งเตือนในแอป
+            </div>
+            <button 
+              onClick={() => setShowIOSPrompt(false)}
+              className="absolute top-3.5 right-3.5 text-amber-500 hover:text-amber-800 font-bold px-1 text-sm transition"
+              aria-label="ปิดกล่องแนะนำ"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* Desktop Top Right Actions */}
         <div className="absolute top-4 right-4 md:top-8 md:right-8 z-10 hidden md:block">
           {!user ? (

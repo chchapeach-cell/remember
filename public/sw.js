@@ -7,7 +7,7 @@ self.addEventListener('push', function(event) {
         icon: data.icon || '/icon.png',
         badge: data.icon || '/icon.png',
         vibrate: [200, 100, 200, 100, 200],
-        sound: '/notification.mp3',
+        sound: '/notification.wav',
         data: {
           dateOfArrival: Date.now(),
           primaryKey: '2'
