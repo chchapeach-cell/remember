@@ -383,15 +383,26 @@ export default function SettingsPage({ user }: { user: User | null }) {
               </div>
             )}
 
-            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-2">
+            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 space-y-3">
                <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
                  <Info className="w-4 h-4 text-indigo-500" />
-                 คำแนะนำเพิ่มเติม
+                 คำแนะนำเพิ่มเติมเกี่ยวกับระบบและเสียงแจ้งเตือน
                </h3>
-               <ul className="text-xs text-slate-500 space-y-1.5 list-disc list-inside">
-                 <li>สำหรับ <strong>iOS (iPhone/iPad)</strong>: กรุณากดปุ่ม Share (แชร์) และเลือก "Add to Home Screen" (เพิ่มไปยังหน้าจอโฮม) ก่อนเปิดการแจ้งเตือน</li>
-                 <li>สำหรับ <strong>Android</strong>: สามารถเปิดใช้งานได้ทันทีผ่านเบราว์เซอร์ Chrome หรือเบราว์เซอร์ที่รองรับ</li>
-                 <li>เมื่อกดเปิดการแจ้งเตือน เบราว์เซอร์จะถามสิทธิ์ (Permission) ให้คุณกดปุ่ม "Allow" (อนุญาต)</li>
+               <ul className="text-xs text-slate-500 space-y-2 list-disc list-inside">
+                 <li>สำหรับ <strong>iOS (iPhone/iPad)</strong>: จำเป็นต้องกดปุ่มแชร์ (Share) แล้วเลือก <strong>"Add to Home Screen" (เพิ่มไปยังหน้าจอโฮม)</strong> ก่อนเปิดและรับการแจ้งเตือน</li>
+                 <li><strong>แก้ปัญหาเสียงแจ้งเตือนไม่ดังบน iPhone/iPad:</strong>
+                   <ul className="pl-5 mt-1 list-circle space-y-1">
+                     <li>ตรวจสอบว่า<strong>ไม่ได้เปิดโหมดปิดเสียง (Silent Switch ที่สวิตช์ข้างเครื่อง)</strong> หรือโหมดห้ามรบกวน (Do Not Disturb/Focus Mode)</li>
+                     <li>ไปที่ตั้งค่าของ iOS -&gt; การแจ้งเตือน -&gt; ค้นหาแอปที่คุณเพิ่งติดตั้งเพิ่มไปยังหน้าจอโฮม -&gt; ตรวจสอบว่าเปิด <strong>"เสียง" (Sounds)</strong> แล้ว</li>
+                   </ul>
+                 </li>
+                 <li><strong>แก้ปัญหาเสียงแจ้งเตือนไม่ดังบน Android:</strong>
+                   <ul className="pl-5 mt-1 list-circle space-y-1">
+                     <li>ตรวจสอบให้แน่ใจว่าไม่ได้ปิดเสียงระบบหรือเปิดโหมดห้ามรบกวน</li>
+                     <li>ไปที่การตั้งค่าเครื่อง -&gt; แอปพลิเคชัน -&gt; เลือกเบราว์เซอร์ของคุณ (เช่น Chrome) หรือเว็บแอปที่ติดตั้งไว้ -&gt; การแจ้งเตือน -&gt; หมวดหมู่การแจ้งเตือน -&gt; ตรวจสอบว่าเปิดใช้งานสิทธิ์เสียงเป็น "ส่งเสียงและแสดงบนหน้าจอ"</li>
+                   </ul>
+                 </li>
+                 <li><strong>เสียงแจ้งเตือนเมื่ออยู่ในหน้าเว็บ (Real-time Web Audio):</strong> เบราว์เซอร์ส่วนใหญ่มีระบบป้องกันเสียงเล่นเองอัตโนมัติ (Autoplay Policy) กรุณากดปุ่ม <strong>🔊 ทดสอบระบบเสียง</strong> ด้านบน หรือแตะสัมผัสหน้าจออย่างน้อย 1 ครั้ง เพื่อให้สิทธิ์เล่นเสียงเปิดใช้งาน</li>
                </ul>
             </div>
           </div>

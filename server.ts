@@ -4,6 +4,8 @@ import { createServer as createViteServer } from "vite";
 import axios from "axios";
 import fs from "fs";
 import webpush from "web-push";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, getDocs } from "firebase/firestore";
 
 // Load firebase config
 let firebaseConfig: any = {};
@@ -12,6 +14,17 @@ try {
   firebaseConfig = JSON.parse(configRaw);
 } catch (e) {
   console.warn("Could not load firebase config", e);
+}
+
+// Initialize Firebase client SDK
+let dbFirebase: any = null;
+try {
+  if (firebaseConfig.projectId) {
+    const appFirebase = initializeApp(firebaseConfig);
+    dbFirebase = getFirestore(appFirebase, firebaseConfig.firestoreDatabaseId);
+  }
+} catch (e) {
+  console.warn("Could not initialize Firebase client SDK", e);
 }
 
 // Fixed VAPID Keys for this applet (generated once)
@@ -52,23 +65,17 @@ async function startServer() {
         return res.status(500).json({ error: "Firebase config missing" });
       }
 
-      // Fetch users from Firestore
-      let users = [];
-      try {
-        const apiKeyParam = firebaseConfig.apiKey ? `?key=${firebaseConfig.apiKey}` : "";
-        const headers: Record<string, string> = {};
-        if (req.headers.authorization) {
-          headers["Authorization"] = req.headers.authorization;
+      // Fetch users from Firestore using client SDK
+      let users: any[] = [];
+      if (dbFirebase) {
+        try {
+          const snap = await getDocs(collection(dbFirebase, "users"));
+          snap.forEach(doc => {
+            users.push({ id: doc.id, ...doc.data() });
+          });
+        } catch (e) {
+          console.warn("Could not fetch users from Firestore using client SDK", e);
         }
-        const firestoreRes = await axios.get(
-          `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents/users${apiKeyParam}`,
-          { headers }
-        );
-        if (firestoreRes.data && firestoreRes.data.documents) {
-          users = firestoreRes.data.documents;
-        }
-      } catch (e) {
-        console.warn("Could not fetch users from Firestore", e);
       }
 
       const payload = JSON.stringify({
@@ -81,29 +88,24 @@ async function startServer() {
       let errorCount = 0;
 
       // Broadcast to all users' subscriptions
-      for (const userDoc of users) {
-        const fields = userDoc.fields;
-        if (fields && fields.pushSubscriptions && fields.pushSubscriptions.arrayValue && fields.pushSubscriptions.arrayValue.values) {
-          
-          // If targetUserId is provided, only send to that user
-          const userIdParts = userDoc.name.split('/');
-          const docUserId = userIdParts[userIdParts.length - 1];
-          if (targetUserId && docUserId !== targetUserId) {
-            continue;
-          }
+      for (const user of users) {
+        // If targetUserId is provided, only send to that user
+        if (targetUserId && user.id !== targetUserId) {
+          continue;
+        }
 
-          const subs = fields.pushSubscriptions.arrayValue.values;
+        const subs = user.pushSubscriptions;
+        if (Array.isArray(subs)) {
           for (const sub of subs) {
             try {
-              if (sub.stringValue) {
-                const subscription = JSON.parse(sub.stringValue);
+              if (sub) {
+                const subscription = typeof sub === "string" ? JSON.parse(sub) : sub;
                 await webpush.sendNotification(subscription, payload);
                 sentCount++;
               }
             } catch (error: any) {
               console.error("Error sending push notification to a device", error.statusCode);
               errorCount++;
-              // Note: Normally we'd remove expired subscriptions here
             }
           }
         }

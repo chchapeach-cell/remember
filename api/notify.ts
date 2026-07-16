@@ -1,8 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import webpush from 'web-push';
-import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, collection, getDocs } from 'firebase/firestore';
 
 const vapidKeys = {
   publicKey: 'BI34U_bCSxQ6M8lxrlutHEzb26YuO-mI-bkT5d_CpCeUFW7AbA2mSfAW_QwETVl46bpnbgEMm1XvSwJYFi5ONwE',
@@ -19,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
@@ -29,10 +30,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { message, targetUserId } = req.body;
+    const { message, title, body, targetUserId } = req.body;
+    const displayTitle = title || "ภารกิจผู้บริหาร";
+    const displayBody = message || body;
     
-    if (!message) {
-      return res.status(400).json({ error: "Message is required" });
+    if (!displayBody) {
+      return res.status(400).json({ error: "Message or body is required" });
     }
 
     // Load firebase config
@@ -53,22 +56,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: "Firebase config missing" });
     }
 
-    // Fetch users from Firestore REST API
-    let users = [];
+    // Initialize Firebase client SDK
+    let dbFirebase: any = null;
     try {
-      const firestoreRes = await axios.get(
-        `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firebaseConfig.firestoreDatabaseId}/documents/users`
-      );
-      if (firestoreRes.data && firestoreRes.data.documents) {
-        users = firestoreRes.data.documents;
+      let app;
+      if (getApps().length === 0) {
+        app = initializeApp(firebaseConfig);
+      } else {
+        app = getApp();
       }
+      dbFirebase = getFirestore(app, firebaseConfig.firestoreDatabaseId);
     } catch (e) {
-      console.warn("Could not fetch users from Firestore", e);
+      console.warn("Could not initialize Firebase client SDK in vercel function", e);
+    }
+
+    // Fetch users from Firestore using client SDK
+    let users: any[] = [];
+    if (dbFirebase) {
+      try {
+        const snap = await getDocs(collection(dbFirebase, "users"));
+        snap.forEach(doc => {
+          users.push({ id: doc.id, ...doc.data() });
+        });
+      } catch (e) {
+        console.warn("Could not fetch users from Firestore using client SDK", e);
+      }
     }
 
     const payload = JSON.stringify({
-      title: "ภารกิจผู้บริหาร",
-      body: message,
+      title: displayTitle,
+      body: displayBody,
       icon: "https://krustation.com/wp-content/uploads/2026/03/logo-obec-1.jpg"
     });
 
@@ -76,22 +93,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let errorCount = 0;
 
     // Broadcast to all users' subscriptions
-    for (const userDoc of users) {
-      const fields = userDoc.fields;
-      if (fields && fields.pushSubscriptions && fields.pushSubscriptions.arrayValue && fields.pushSubscriptions.arrayValue.values) {
-        
-        // If targetUserId is provided, only send to that user
-        const userIdParts = userDoc.name.split('/');
-        const docUserId = userIdParts[userIdParts.length - 1];
-        if (targetUserId && docUserId !== targetUserId) {
-          continue;
-        }
+    for (const user of users) {
+      // If targetUserId is provided, only send to that user
+      if (targetUserId && user.id !== targetUserId) {
+        continue;
+      }
 
-        const subs = fields.pushSubscriptions.arrayValue.values;
+      const subs = user.pushSubscriptions;
+      if (Array.isArray(subs)) {
         for (const sub of subs) {
           try {
-            if (sub.stringValue) {
-              const subscription = JSON.parse(sub.stringValue);
+            if (sub) {
+              const subscription = typeof sub === "string" ? JSON.parse(sub) : sub;
               await webpush.sendNotification(subscription, payload);
               sentCount++;
             }
