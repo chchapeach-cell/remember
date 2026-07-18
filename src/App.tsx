@@ -4,11 +4,9 @@ import { signInWithPopup, onAuthStateChanged, signOut, User as FirebaseUser } fr
 import { doc, getDoc, setDoc, collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { User, Role } from './types';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { LogOut, Home, Calendar, PieChart, Bell, LayoutDashboard, Settings, AlertCircle, GitCompare } from 'lucide-react';
+import { LogOut, Home, Calendar, Bell, Settings, AlertCircle, GitCompare } from 'lucide-react';
 
-import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
-import Report from './components/Report';
 import Compare from './components/Compare';
 import RoleSelector from './components/RoleSelector';
 import SettingsPage from './components/SettingsPage';
@@ -62,15 +60,15 @@ export default function App() {
             userData = userDoc.data() as User;
             userData.email = userData.email.toLowerCase();
             
-            if (isSpecialAdmin && userData.role !== 'executive') {
-              userData.role = 'executive';
+            if (isSpecialAdmin && userData.role !== 'staff') {
+              userData.role = 'staff';
               await setDoc(doc(db, 'users', firebaseUser.uid), userData);
             }
           } else {
             // New allowed user or special admin
             let assignedRole: Role = 'unassigned';
             if (isSpecialAdmin) {
-              assignedRole = 'executive';
+              assignedRole = 'staff';
             } else if (allowedDocSnap && allowedDocSnap.exists()) {
               assignedRole = allowedDocSnap.data().role as Role;
             }
@@ -94,7 +92,7 @@ export default function App() {
               email: userEmail,
               displayName: firebaseUser.displayName || '',
               photoURL: firebaseUser.photoURL || '',
-              role: 'executive',
+              role: 'staff',
             });
           } else {
             setUser(null);
@@ -316,32 +314,6 @@ function AppContent({
               <span className="font-medium">เปรียบเทียบตาราง</span>
             </Link>
           )}
-          {user && user.role !== 'general' && user.role !== 'unassigned' && (
-            <>
-              <Link 
-                to="/dashboard" 
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-                  currentPath === '/dashboard'
-                    ? 'bg-white/10 text-white font-semibold' 
-                    : 'text-indigo-300 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <LayoutDashboard className="w-5 h-5" />
-                <span className="font-medium">ภาพรวม</span>
-              </Link>
-              <Link 
-                to="/report" 
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-                  currentPath === '/report'
-                    ? 'bg-white/10 text-white font-semibold' 
-                    : 'text-indigo-300 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <PieChart className="w-5 h-5" />
-                <span className="font-medium">รายงาน</span>
-              </Link>
-            </>
-          )}
           {user && user.role !== 'unassigned' && (
              <Link 
                to="/settings" 
@@ -450,8 +422,6 @@ function AppContent({
                 <Route path="/" element={<TaskList user={user} />} />
                 <Route path="/tasks" element={<Navigate to="/" />} />
                 <Route path="/compare" element={<Compare user={user} />} />
-                <Route path="/dashboard" element={<Dashboard user={user} />} />
-                <Route path="/report" element={<Report user={user} />} />
                 <Route path="/settings" element={<SettingsPage user={user} />} />
                 <Route path="/setup" element={<RoleSelector onSelect={handleRoleSelect} />} />
                 <Route path="*" element={<Navigate to="/" />} />
@@ -486,32 +456,6 @@ function AppContent({
             <GitCompare className="w-5 h-5" />
             <span className="text-[9px] mt-1 font-semibold">เปรียบเทียบ</span>
           </Link>
-          {user.role !== 'general' && (
-            <>
-              <Link 
-                to="/dashboard" 
-                className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition ${
-                  currentPath === '/dashboard' 
-                    ? 'text-indigo-600 font-bold scale-105' 
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                <LayoutDashboard className="w-5 h-5" />
-                <span className="text-[9px] mt-1 font-semibold">ภาพรวม</span>
-              </Link>
-              <Link 
-                to="/report" 
-                className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition ${
-                  currentPath === '/report' 
-                    ? 'text-indigo-600 font-bold scale-105' 
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                <PieChart className="w-5 h-5" />
-                <span className="text-[9px] mt-1 font-semibold">รายงาน</span>
-              </Link>
-            </>
-          )}
           <Link 
             to="/settings" 
             className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl transition ${

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { User, Task } from '../types';
-import { db } from '../firebase';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
+import { db, storage } from '../firebase';
+import { collection, query, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { format, addDays, subDays, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, User as UserIcon, Paperclip, CheckCircle2, AlertCircle, Sun, Sunset } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, User as UserIcon, Paperclip, CheckCircle2, AlertCircle, Sun, Sunset, Image as ImageIcon, Loader2, X, Trash2 } from 'lucide-react';
 import { getStaffTheme } from '../utils/staffColors';
 
 const STAFF_MEMBERS = [
@@ -17,6 +18,43 @@ const STAFF_MEMBERS = [
 export default function Compare({ user }: { user: User | null }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [uploadingTaskId, setUploadingTaskId] = useState<string | null>(null);
+
+  const isImageUrl = (url?: string) => {
+    if (!url) return false;
+    return url.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)/) !== null || url.includes('image') || url.includes('googleusercontent');
+  };
+
+  const handleUploadImage = async (taskId: string, file: File) => {
+    setUploadingTaskId(taskId);
+    try {
+      const fileRef = ref(storage, `task_images/${taskId}_${Date.now()}_${file.name}`);
+      const snapshot = await uploadBytes(fileRef, file);
+      const downloadUrl = await getDownloadURL(snapshot.ref);
+      
+      await updateDoc(doc(db, 'tasks', taskId), {
+        imageUrl: downloadUrl
+      });
+    } catch (error) {
+      console.error("Error uploading task image:", error);
+      alert('ไม่สามารถอัปโหลดรูปภาพได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setUploadingTaskId(null);
+    }
+  };
+
+  const handleRemoveImage = async (taskId: string) => {
+    if (window.confirm('คุณต้องการลบรูปภาพนี้ใช่หรือไม่?')) {
+      try {
+        await updateDoc(doc(db, 'tasks', taskId), {
+          imageUrl: ''
+        });
+      } catch (error) {
+        console.error("Error deleting task image:", error);
+        alert('เกิดข้อผิดพลาดในการลบรูปภาพ');
+      }
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'tasks'), orderBy('time', 'asc'));
@@ -158,6 +196,57 @@ export default function Compare({ user }: { user: User | null }) {
                   </p>
                 )}
               </div>
+
+              {/* IMAGE DISPLAY / UPLOADER */}
+              {task.imageUrl || (task.attachmentUrl && isImageUrl(task.attachmentUrl)) ? (
+                <div className="relative mt-2 rounded-xl overflow-hidden border border-slate-200/60 bg-white group/img max-h-48 shadow-2xs">
+                  <img
+                    src={task.imageUrl || task.attachmentUrl}
+                    alt={task.title}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-32 object-cover hover:scale-105 transition duration-300 cursor-zoom-in"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(task.imageUrl || task.attachmentUrl, '_blank');
+                    }}
+                  />
+                  {user?.role === 'staff' && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveImage(task.id);
+                      }}
+                      className="absolute top-1.5 right-1.5 bg-red-600/90 hover:bg-red-700 text-white rounded-full p-1.5 transition shadow opacity-0 group-hover/img:opacity-100 duration-150"
+                      title="ลบรูปภาพ"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ) : uploadingTaskId === task.id ? (
+                <div className="mt-2 flex items-center justify-center gap-2 py-3 bg-indigo-50/50 border border-dashed border-indigo-200 rounded-xl text-xs font-semibold text-indigo-600">
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                  กำลังอัปโหลดรูปภาพ...
+                </div>
+              ) : user?.role === 'staff' ? (
+                <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                  <label className="flex items-center justify-center gap-1.5 py-2 px-3 border border-dashed border-slate-200 rounded-xl cursor-pointer hover:bg-indigo-50/50 hover:border-indigo-300 hover:text-indigo-600 transition text-[11px] font-bold text-slate-500 bg-white">
+                    <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
+                    เพิ่มรูปภาพภารกิจ
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          handleUploadImage(task.id, e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              ) : null}
 
               <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200/50">
                 {task.time ? (

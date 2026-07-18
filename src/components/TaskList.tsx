@@ -8,6 +8,36 @@ import { Plus, Edit2, Trash2, CheckCircle2, Clock, AlertCircle, ChevronLeft, Che
 import TaskForm from './TaskForm';
 import { getStaffTheme } from '../utils/staffColors';
 
+const STAFF_MEMBERS = [
+  'นางสาววรินทร ปัดกอง',
+  'นายสากล ชนะบูรณ์',
+  'นายจักรวาล เขียวดีเจริญกุล',
+  'นางสาวญาสุมินทร์ นนทมาตร'
+];
+
+const THAI_HOLIDAYS: Record<string, string> = {
+  '01-01': 'วันขึ้นปีใหม่',
+  '01-16': 'วันครู',
+  '02-24': 'วันมาฆบูชา',
+  '04-06': 'วันจักรี',
+  '04-13': 'วันสงกรานต์',
+  '04-14': 'วันสงกรานต์',
+  '04-15': 'วันสงกรานต์',
+  '05-01': 'วันแรงงานแห่งชาติ',
+  '05-04': 'วันฉัตรมงคล',
+  '05-22': 'วันวิสาขบูชา',
+  '06-03': 'วันเฉลิมพระชนมพรรษาพระบรมราชินี',
+  '07-20': 'วันอาสาฬหบูชา',
+  '07-21': 'วันเข้าพรรษา',
+  '07-28': 'วันเฉลิมพระชนมพรรษา รัชกาลที่ 10',
+  '08-12': 'วันแม่แห่งชาติ',
+  '10-13': 'วันนวมินทรมหาราช',
+  '10-23': 'วันปิยมหาราช',
+  '12-05': 'วันพ่อแห่งชาติ (วันชาติ)',
+  '12-10': 'วันรัฐธรรมนูญ',
+  '12-31': 'วันสิ้นปี'
+};
+
 export default function TaskList({ user }: { user: User | null }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -140,14 +170,23 @@ export default function TaskList({ user }: { user: User | null }) {
     };
 
     const formattedDate = format(dateObj, 'dd MMM yyyy', { locale: th });
+    const holidayKey = format(dateObj, 'MM-dd');
+    const holidayName = THAI_HOLIDAYS[holidayKey];
 
     return (
-      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-xs ${style.bg}`}>
-        <span className={`w-2 h-2 rounded-full ${style.dot}`} />
-        <span className="opacity-90">{style.label}</span>
-        <span className="opacity-40 font-normal">|</span>
-        <span>{formattedDate}</span>
-      </span>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 flex-wrap">
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-xs ${style.bg}`}>
+          <span className={`w-2 h-2 rounded-full ${style.dot}`} />
+          <span className="opacity-90">{style.label}</span>
+          <span className="opacity-40 font-normal">|</span>
+          <span>{formattedDate}</span>
+        </span>
+        {holidayName && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-2 py-1 rounded-xl shadow-2xs">
+            🎉 {holidayName}
+          </span>
+        )}
+      </div>
     );
   };
 
@@ -218,23 +257,12 @@ export default function TaskList({ user }: { user: User | null }) {
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6">
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">ตารางงาน (Tasks)</h1>
           <p className="text-slate-500">จัดการและติดตามภารกิจทั้งหมด</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <select
-            value={filterAssignee}
-            onChange={(e) => setFilterAssignee(e.target.value)}
-            className="text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-          >
-            <option value="">-- ผู้รับผิดชอบทั้งหมด --</option>
-            <option value="นางสาววรินทร ปัดกอง">นางสาววรินทร ปัดกอง</option>
-            <option value="นายสากล ชนะบูรณ์">นายสากล ชนะบูรณ์</option>
-            <option value="นายจักรวาล เขียวดีเจริญกุล">นายจักรวาล เขียวดีเจริญกุล</option>
-            <option value="นางสาวญาสุมินทร์ นนทมาตร">นางสาวญาสุมินทร์ นนทมาตร</option>
-          </select>
           <div className="bg-white p-1 rounded-lg flex items-center border border-slate-200 shadow-sm">
             <button
               onClick={() => setViewMode('calendar')}
@@ -262,6 +290,41 @@ export default function TaskList({ user }: { user: User | null }) {
           )}
         </div>
       </header>
+
+      {/* Custom Staff Selector (Direct Pill buttons instead of dropdown) */}
+      <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-2xl flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2 items-center w-full">
+          <span className="text-xs font-black text-slate-400 uppercase tracking-wider mr-1">เลือกผู้รับผิดชอบ:</span>
+          <button
+            onClick={() => setFilterAssignee('')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition duration-150 active:scale-95 ${
+              !filterAssignee
+                ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            ทั้งหมด
+          </button>
+          {STAFF_MEMBERS.map((staffName) => {
+            const theme = getStaffTheme(staffName);
+            const isSelected = filterAssignee === staffName;
+            return (
+              <button
+                key={staffName}
+                onClick={() => setFilterAssignee(isSelected ? '' : staffName)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black border transition-all duration-150 active:scale-95 flex items-center gap-1.5 ${
+                  isSelected
+                    ? `${theme.bg} ${theme.badge} border-current ring-1 ring-offset-1 ring-indigo-500/30 shadow-xs scale-[1.02]`
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${theme.dot}`} />
+                {staffName}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {viewMode === 'list' ? (
         <div className="space-y-6">
@@ -710,18 +773,25 @@ export default function TaskList({ user }: { user: User | null }) {
                 const isCurrentMonth = isSameMonth(day, currentMonth);
                 const isToday = isSameDay(day, new Date());
 
+                const holidayKey = format(day, 'MM-dd');
+                const holidayName = THAI_HOLIDAYS[holidayKey];
+
                 return (
                   <div
                     key={dayIdx}
-                    className={`min-h-[80px] sm:min-h-[120px] rounded-lg sm:rounded-2xl border p-1 sm:p-2 flex flex-col transition-colors overflow-hidden ${
-                      !isCurrentMonth ? 'bg-slate-50/50 border-transparent' : 'bg-white border-slate-100 hover:border-indigo-200'
+                    className={`min-h-[80px] sm:min-h-[120px] rounded-lg sm:rounded-2xl border p-1 sm:p-2 flex flex-col transition-all overflow-hidden ${
+                      isToday
+                        ? 'bg-indigo-50/90 border-indigo-400 ring-2 ring-indigo-500/20 shadow-sm scale-[1.01]'
+                        : !isCurrentMonth
+                        ? 'bg-slate-50/50 border-transparent'
+                        : 'bg-white border-slate-100 hover:border-indigo-200'
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-1 sm:mb-2">
+                    <div className="flex justify-between items-start mb-1">
                       <span
-                        className={`text-xs sm:text-sm font-medium w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-full ${
+                        className={`text-xs sm:text-sm font-bold w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-full ${
                           isToday
-                            ? 'bg-indigo-600 text-white'
+                            ? 'bg-indigo-600 text-white shadow-sm scale-105'
                             : isCurrentMonth
                             ? 'text-slate-700'
                             : 'text-slate-400'
@@ -732,13 +802,18 @@ export default function TaskList({ user }: { user: User | null }) {
                       {canEdit && isCurrentMonth && (
                         <button
                           onClick={() => { setEditingTask({ date: format(day, 'yyyy-MM-dd') } as any); setIsFormOpen(true); }}
-                          className="text-slate-300 hover:text-indigo-600 transition"
+                          className="text-slate-300 hover:text-indigo-600 transition p-0.5"
                           title="เพิ่มภารกิจในวันนี้"
                         >
                           <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                         </button>
                       )}
                     </div>
+                    {holidayName && (
+                      <span className="text-[8px] sm:text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded-md truncate max-w-full block mb-1.5 animate-pulse select-none text-center" title={holidayName}>
+                        🎉 {holidayName}
+                      </span>
+                    )}
                     <div className="flex-1 overflow-y-auto space-y-1 sm:space-y-1.5 scrollbar-hide">
                       {dayTasks.map(task => {
                         const primaryAssignee = task.assignees?.[0] || task.assignee;

@@ -65,7 +65,7 @@ export default function SettingsPage({ user }: { user: User | null }) {
           const reg = registeredMap.get(email);
           list.push({
             email,
-            role: 'executive',
+            role: 'staff',
             registered: !!reg,
             uid: reg?.uid
           });
@@ -238,11 +238,19 @@ export default function SettingsPage({ user }: { user: User | null }) {
     }
   };
 
+  const isAdmin = user ? (user.role === 'staff' || user.role === 'executive') : false;
+  const canManageUsers = user ? (user.role === 'staff') : false;
+
+  // Security guard: If user does not have privilege to manage users, auto-redirect to notifications
+  useEffect(() => {
+    if (activeTab === 'users' && !canManageUsers) {
+      setActiveTab('notifications');
+    }
+  }, [activeTab, canManageUsers]);
+
   if (!user) {
     return <div className="p-8 text-center text-red-500">กรุณาเข้าสู่ระบบ</div>;
   }
-  
-  const isAdmin = user.role === 'staff' || user.role === 'executive';
 
   const roleLabel = (role: Role) => {
     switch(role) {
@@ -276,7 +284,7 @@ export default function SettingsPage({ user }: { user: User | null }) {
           <Bell className="w-4 h-4" />
           การแจ้งเตือน (โทรศัพท์/PC)
         </button>
-        {isAdmin && (
+        {canManageUsers && (
           <button
             onClick={() => setActiveTab('users')}
             className={`px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
@@ -408,7 +416,7 @@ export default function SettingsPage({ user }: { user: User | null }) {
       )}
 
       {/* TAB 2: ACCESS CONTROL (ALLOWED EMAILS) */}
-      {isAdmin && activeTab === 'users' && (
+      {canManageUsers && activeTab === 'users' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Add Allowed User Form */}

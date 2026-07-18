@@ -24,4 +24,5 @@ export interface Task {
   createdAt: number;
   attachmentUrl?: string;
   attachmentName?: string;
+  imageUrl?: string;
 }
