@@ -4,7 +4,7 @@ import { db } from '../firebase';
 import { collection, query, onSnapshot, orderBy, doc, deleteDoc, setDoc } from 'firebase/firestore';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Plus, Edit2, Trash2, CheckCircle2, Clock, AlertCircle, ChevronLeft, ChevronRight, LayoutList, Calendar as CalendarIcon, Paperclip } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle2, Clock, AlertCircle, ChevronLeft, ChevronRight, LayoutList, Calendar as CalendarIcon, Paperclip, X } from 'lucide-react';
 import TaskForm from './TaskForm';
 import { getStaffTheme } from '../utils/staffColors';
 
@@ -46,6 +46,7 @@ export default function TaskList({ user }: { user: User | null }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filterAssignee, setFilterAssignee] = useState<string>('');
   const [showPastTasks, setShowPastTasks] = useState(false);
+  const [selectedDayDetails, setSelectedDayDetails] = useState<Date | null>(null);
 
   // Set default viewMode to 'list' on mobile screens on mount
   useEffect(() => {
@@ -779,7 +780,8 @@ export default function TaskList({ user }: { user: User | null }) {
                 return (
                   <div
                     key={dayIdx}
-                    className={`min-h-[80px] sm:min-h-[120px] rounded-lg sm:rounded-2xl border p-1 sm:p-2 flex flex-col transition-all overflow-hidden ${
+                    onClick={() => setSelectedDayDetails(day)}
+                    className={`min-h-[80px] sm:min-h-[120px] rounded-lg sm:rounded-2xl border p-1 sm:p-2 flex flex-col transition-all overflow-hidden cursor-pointer hover:shadow-md ${
                       isToday
                         ? 'bg-indigo-50/90 border-indigo-400 ring-2 ring-indigo-500/20 shadow-sm scale-[1.01]'
                         : !isCurrentMonth
@@ -799,15 +801,6 @@ export default function TaskList({ user }: { user: User | null }) {
                       >
                         {format(day, 'd')}
                       </span>
-                      {canEdit && isCurrentMonth && (
-                        <button
-                          onClick={() => { setEditingTask({ date: format(day, 'yyyy-MM-dd') } as any); setIsFormOpen(true); }}
-                          className="text-slate-300 hover:text-indigo-600 transition p-0.5"
-                          title="เพิ่มภารกิจในวันนี้"
-                        >
-                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-                        </button>
-                      )}
                     </div>
                     {holidayName && (
                       <span className="text-[8px] sm:text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-1 py-0.5 rounded-md truncate max-w-full block mb-1.5 animate-pulse select-none text-center" title={holidayName}>
@@ -821,7 +814,7 @@ export default function TaskList({ user }: { user: User | null }) {
                         return (
                           <div
                             key={task.id}
-                            onClick={() => { if (canEdit) { setEditingTask(task); setIsFormOpen(true); } }}
+                            onClick={(e) => { e.stopPropagation(); if (canEdit) { setEditingTask(task); setIsFormOpen(true); } }}
                             className={`text-[10px] sm:text-xs px-1 sm:px-2 py-1 sm:py-1.5 rounded sm:rounded-lg cursor-pointer transition border border-l-4 ${theme.borderLeft} flex flex-col gap-0.5 relative group ${
                               task.priority === 'high'
                                 ? 'bg-red-50 text-red-700 border-red-100 hover:bg-red-100'
@@ -858,6 +851,106 @@ export default function TaskList({ user }: { user: User | null }) {
           onClose={() => setIsFormOpen(false)} 
           onDelete={handleDelete}
         />
+      )}
+
+      {/* Day Details Modal */}
+      {selectedDayDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedDayDetails(null)}>
+          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-6 border-b border-slate-100">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">
+                  {format(selectedDayDetails, 'dd MMMM yyyy', { locale: th })}
+                </h2>
+                {THAI_HOLIDAYS[format(selectedDayDetails, 'MM-dd')] && (
+                  <p className="text-rose-500 font-semibold text-sm mt-1">
+                    🎉 {THAI_HOLIDAYS[format(selectedDayDetails, 'MM-dd')]}
+                  </p>
+                )}
+              </div>
+              <button 
+                onClick={() => setSelectedDayDetails(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3 bg-slate-50">
+              {getTasksForDay(selectedDayDetails).length === 0 ? (
+                <div className="text-center py-8 text-slate-400 font-medium">ไม่มีภารกิจในวันนี้</div>
+              ) : (
+                getTasksForDay(selectedDayDetails).map(task => {
+                  const primaryAssignee = task.assignees?.[0] || task.assignee;
+                  const theme = getStaffTheme(primaryAssignee);
+                  return (
+                    <div 
+                      key={task.id}
+                      onClick={() => {
+                        if (canEdit) {
+                          setSelectedDayDetails(null);
+                          setEditingTask(task);
+                          setIsFormOpen(true);
+                        }
+                      }}
+                      className={`p-4 rounded-2xl bg-white border border-slate-200 shadow-sm transition flex flex-col gap-2 ${canEdit ? 'cursor-pointer hover:border-indigo-300 hover:shadow-md' : ''}`}
+                    >
+                      <div className="flex justify-between items-start gap-3">
+                        <h4 className="font-bold text-slate-800 text-base">{task.title}</h4>
+                        {priorityBadge(task.priority)}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs items-center">
+                        {statusBadge(task.status)}
+                        {task.time && (
+                          <span className="flex items-center gap-1 text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg font-medium">
+                            <Clock className="w-3.5 h-3.5" />
+                            {task.time}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 mt-1 whitespace-pre-line leading-relaxed">{task.description}</p>
+                      <div className="mt-2 pt-3 border-t border-slate-100 flex items-center justify-between">
+                         <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${theme.dot}`} />
+                            <span className="text-xs font-bold text-slate-700">
+                               {task.assignees?.length ? task.assignees.join(', ') : task.assignee}
+                            </span>
+                         </div>
+                         {task.attachmentUrl && (
+                           <a 
+                             href={task.attachmentUrl} 
+                             target="_blank" 
+                             rel="noopener noreferrer"
+                             onClick={(e) => e.stopPropagation()}
+                             className="text-indigo-600 flex items-center gap-1 text-xs font-bold bg-indigo-50 px-2 py-1 rounded-md hover:bg-indigo-100 transition"
+                           >
+                             <Paperclip className="w-3.5 h-3.5" /> File
+                           </a>
+                         )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            {canEdit && (
+              <div className="p-4 border-t border-slate-100 bg-white">
+                <button
+                  onClick={() => {
+                    setSelectedDayDetails(null);
+                    setEditingTask({ date: format(selectedDayDetails, 'yyyy-MM-dd') } as any);
+                    setIsFormOpen(true);
+                  }}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  เพิ่มภารกิจใหม่ในวันนี้
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
