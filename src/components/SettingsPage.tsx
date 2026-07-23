@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { User, Role } from '../types';
 import { db, auth } from '../firebase';
 import { doc, getDoc, setDoc, collection, onSnapshot, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { Settings, Save, CheckCircle2, UserPlus, Trash2, Shield, Users, Mail, AlertTriangle, Bell, Info } from 'lucide-react';
+import { Settings, Save, CheckCircle2, UserPlus, Trash2, Shield, Users, Mail, AlertTriangle, Bell, Info, Edit3 } from 'lucide-react';
 import axios from 'axios';
 import { playNotificationSound } from '../utils/audio';
 
 export default function SettingsPage({ user }: { user: User | null }) {
-  const [activeTab, setActiveTab] = useState<'notifications' | 'users'>('notifications');
+  const [activeTab, setActiveTab] = useState<'notifications' | 'users' | 'profile'>('notifications');
   
+  // Profile State
+  const [profileName, setProfileName] = useState(user?.displayName || '');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
+
   // Notification State
   const [pushEnabled, setPushEnabled] = useState(false);
   const [loadingPush, setLoadingPush] = useState(true);
@@ -164,6 +169,26 @@ export default function SettingsPage({ user }: { user: User | null }) {
     return outputArray;
   };
 
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    setSavingProfile(true);
+    setProfileSuccess(null);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        displayName: profileName
+      });
+      setProfileSuccess('อัปเดตชื่อผู้ใช้งานเรียบร้อยแล้ว (การเปลี่ยนแปลงจะแสดงผลเมื่อรีเฟรชหน้าเว็บ)');
+      setTimeout(() => setProfileSuccess(null), 4000);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert('เกิดข้อผิดพลาดในการอัปเดตชื่อ');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setUserActionSuccess(null);
@@ -274,6 +299,17 @@ export default function SettingsPage({ user }: { user: User | null }) {
       {/* Tabs Menu */}
       <div className="flex border-b border-slate-200 gap-1 overflow-x-auto">
         <button
+          onClick={() => setActiveTab('profile')}
+          className={`px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'profile'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <UserPlus className="w-4 h-4" />
+          โปรไฟล์ของฉัน
+        </button>
+        <button
           onClick={() => setActiveTab('notifications')}
           className={`px-5 py-3 border-b-2 font-semibold text-sm transition-all whitespace-nowrap flex items-center gap-2 ${
             activeTab === 'notifications'
@@ -298,6 +334,73 @@ export default function SettingsPage({ user }: { user: User | null }) {
           </button>
         )}
       </div>
+
+      {/* TAB: PROFILE SETTINGS */}
+      {activeTab === 'profile' && (
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden max-w-2xl">
+          <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+            <h2 className="text-lg font-bold text-slate-800">ตั้งค่าโปรไฟล์ส่วนตัว</h2>
+            <p className="text-sm text-slate-500">ปรับปรุงข้อมูลส่วนตัวเพื่อให้ระบบแจ้งเตือนเชื่อมโยงงานถึงคุณได้อย่างถูกต้อง</p>
+          </div>
+          
+          <div className="p-6">
+            <form onSubmit={handleUpdateProfile} className="space-y-5">
+              <div className="flex items-center gap-4 mb-2">
+                <img src={user.photoURL} alt="Profile" className="w-16 h-16 rounded-full border-2 border-indigo-100 shadow-sm" />
+                <div>
+                  <div className="text-sm font-semibold text-slate-500">อีเมลบัญชี:</div>
+                  <div className="font-bold text-slate-800">{user.email}</div>
+                  <div className="text-xs font-semibold mt-1">
+                    สิทธิ์การใช้งาน: {roleLabel(user.role)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 mb-4">
+                <h3 className="text-sm font-bold text-amber-800 flex items-center gap-1.5 mb-1">
+                  <AlertTriangle className="w-4 h-4" /> ข้อแนะนำการตั้งชื่อ
+                </h3>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  เพื่อให้ระบบ <strong>"ภารกิจของคุณ" (Notification Bell)</strong> ทำงานได้อย่างแม่นยำ กรุณาเปลี่ยนชื่อแสดงผลของคุณให้ตรงกับชื่อที่มีในตัวเลือก "ผู้รับผิดชอบ" ตอนสร้างภารกิจ (เช่น "นางสาววรินทร ปัดกอง" หรือ "นายสากล ชนะบูรณ์")
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex items-center gap-1">
+                  <Edit3 className="w-4 h-4 text-slate-400" />
+                  ชื่อแสดงผลในระบบ (Display Name)
+                </label>
+                <input
+                  type="text"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition text-sm font-medium"
+                  placeholder="เช่น นางสาววรินทร ปัดกอง"
+                  required
+                />
+              </div>
+
+              {profileSuccess && (
+                <div className="p-3 bg-green-50 text-green-700 rounded-xl text-sm flex items-center gap-2 border border-green-100 font-medium">
+                  <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                  {profileSuccess}
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={savingProfile || !profileName.trim()}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 rounded-xl transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Save className="w-5 h-5" />
+                  {savingProfile ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: NOTIFICATIONS (Web Push) */}
       {activeTab === 'notifications' && (

@@ -12,6 +12,8 @@ import RoleSelector from './components/RoleSelector';
 import SettingsPage from './components/SettingsPage';
 import { playNotificationSound } from './utils/audio';
 
+import NotificationDropdown from './components/NotificationDropdown';
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -262,6 +264,7 @@ function AppContent({
             </button>
           ) : (
             <div className="flex items-center gap-2.5">
+              <NotificationDropdown user={user} />
               <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-indigo-400" />
               <button
                 onClick={handleLogout}
@@ -399,7 +402,11 @@ function AppContent({
              >
                เข้าสู่ระบบ
              </button>
-          ) : null}
+          ) : (
+            <div className="flex items-center gap-2">
+              <NotificationDropdown user={user} />
+            </div>
+          )}
         </div>
 
         <div className="flex-1 px-4 py-6 md:p-8">
